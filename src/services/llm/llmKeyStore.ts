@@ -1,6 +1,11 @@
 import * as SecureStore from 'expo-secure-store';
 
-export type LlmProvider = 'openai' | 'anthropic' | 'gemini';
+export type LlmProvider = 'gemini' | 'deepseek';
+
+export const DEFAULT_LLM_MODELS: Record<LlmProvider, string> = {
+  gemini: 'gemini-3.8-flash',
+  deepseek: 'deepseek-v4-flash',
+};
 
 const API_KEY_STORAGE_KEY = 'POCKETPICK_LLM_API_KEY';
 const PROVIDER_STORAGE_KEY = 'POCKETPICK_LLM_PROVIDER';
@@ -35,14 +40,14 @@ export async function removeLlmApiKey(): Promise<void> {
 }
 
 /**
- * Retrieves the configured LLM provider (default: openai).
+ * Retrieves the configured LLM provider (default: gemini).
  */
 export async function getLlmProvider(): Promise<LlmProvider> {
   const provider = await SecureStore.getItemAsync(PROVIDER_STORAGE_KEY);
-  if (provider === 'anthropic' || provider === 'gemini' || provider === 'openai') {
+  if (provider === 'gemini' || provider === 'deepseek') {
     return provider;
   }
-  return 'openai';
+  return 'gemini';
 }
 
 /**

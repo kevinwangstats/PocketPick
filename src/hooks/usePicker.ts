@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Resource } from '../db/schema';
 import { decryptString, decryptBuffer } from '../crypto/cipher';
-import { pickUniform, pickWeighted } from '../services/randomizer/pickerEngine';
+import { pickUniform } from '../services/randomizer/pickerEngine';
 import { DecryptedWinner, PickerState } from '../services/randomizer/types';
 import { logPickTransaction } from '../services/history/historyService';
 import { getCachedThumbnail, setCachedThumbnail } from '../services/media/thumbnailCache';
@@ -13,17 +13,10 @@ export interface UsePickerOptions {
   vaultId: string;
   vaultKey: Buffer | null;
   items: Resource[];
-  isWeighted?: boolean;
   onPickLogged?: () => void;
 }
 
-export function usePicker({
-  vaultId,
-  vaultKey,
-  items,
-  isWeighted = false,
-  onPickLogged,
-}: UsePickerOptions) {
+export function usePicker({ vaultId, vaultKey, items, onPickLogged }: UsePickerOptions) {
   const [state, setState] = useState<PickerState>('idle');
   const [currentDisplayItem, setCurrentDisplayItem] = useState<Resource | null>(null);
   const [winner, setWinner] = useState<DecryptedWinner | null>(null);
@@ -93,6 +86,7 @@ export function usePicker({
           setCachedThumbnail(item.id, thumbnailBase64);
         }
 
+        // If photo has associated text note, decrypt it
         let photoNote: string | undefined;
         if (item.encryptedPayload && item.payloadIv && item.payloadTag) {
           try {
@@ -137,19 +131,19 @@ export function usePicker({
       setWinner(null);
       setState('shuffling');
 
-      // Select target winner upfront via CSPRNG
-      const chosenTarget = isWeighted ? pickWeighted(items) : pickUniform(items);
+      // Always select target winner uniformly via CSPRNG (1/N equal probability)
+      const chosenTarget = pickUniform(items);
 
-      // Deceleration animation parameters
-      let delay = 40; // initial tick delay in ms
-      const maxTicks = 18;
+      // Fast, snappy deceleration animation (~450ms total)
+      let delay = 25; // initial fast tick in ms
+      const maxTicks = 8;
       let tickCount = 0;
 
       const runTick = () => {
         if (!isMountedRef.current) return;
 
         tickCount++;
-        // Display a random candidate during shuffle
+        // Display random candidate during shuffle
         const randomCandidate = items[Math.floor(Math.random() * items.length)];
         setCurrentDisplayItem(randomCandidate);
 
@@ -182,10 +176,10 @@ export function usePicker({
               }
             });
         } else {
-          // Accelerate decay
-          if (tickCount > 10) {
+          // Decelerate smoothly
+          if (tickCount > 5) {
             setState('decelerating');
-            delay += 35;
+            delay += 20;
           } else {
             delay += 10;
           }
@@ -195,7 +189,7 @@ export function usePicker({
 
       runTick();
     },
-    [vaultKey, items, isWeighted, decryptResource, vaultId, onPickLogged],
+    [vaultKey, items, decryptResource, vaultId, onPickLogged],
   );
 
   const reset = useCallback(() => {

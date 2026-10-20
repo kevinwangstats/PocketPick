@@ -17,7 +17,6 @@ export default function RandomizerScreen() {
   const { activeVaultId, activeVaultKey } = useSessionStore();
   const [items, setItems] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isWeighted, setIsWeighted] = useState(false);
   const [typeFilter, setTypeFilter] = useState<ResourceTypeFilter>('all');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
 
@@ -52,7 +51,6 @@ export default function RandomizerScreen() {
     vaultId: activeVaultId ?? '',
     vaultKey: activeVaultKey,
     items: activePool,
-    isWeighted,
     onPickLogged: () => {
       // Pick logged successfully in SQLite
     },
@@ -87,7 +85,7 @@ export default function RandomizerScreen() {
           <View className="flex-row justify-between items-center mb-4">
             <View>
               <Label className="text-zinc-400">
-                MODE: {isWeighted ? 'WEIGHTED' : 'UNIFORM'} • POOL: {typeFilter.toUpperCase()}
+                SELECTION: UNIFORM • POOL: {typeFilter.toUpperCase()} ({activePool.length})
               </Label>
             </View>
             <Button
@@ -96,7 +94,7 @@ export default function RandomizerScreen() {
               onPress={() => setFilterModalVisible(true)}
               disabled={state === 'shuffling' || state === 'decelerating'}
             >
-              SETTINGS
+              FILTER POOL
             </Button>
           </View>
 
@@ -138,12 +136,10 @@ export default function RandomizerScreen() {
         </View>
       )}
 
-      {/* Filter / Weight Modal */}
+      {/* Filter Modal */}
       <WeightFilterModal
         visible={filterModalVisible}
         onClose={() => setFilterModalVisible(false)}
-        isWeighted={isWeighted}
-        onToggleWeighted={setIsWeighted}
         typeFilter={typeFilter}
         onSelectTypeFilter={setTypeFilter}
       />

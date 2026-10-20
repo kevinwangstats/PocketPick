@@ -7,7 +7,11 @@ import { getDatabase } from '@/db/client';
 
 jest.mock('@/services/llm/llmKeyStore', () => ({
   getLlmApiKey: jest.fn(async () => 'sk-test-key-12345'),
-  getLlmProvider: jest.fn(async () => 'openai'),
+  getLlmProvider: jest.fn(async () => 'deepseek'),
+  DEFAULT_LLM_MODELS: {
+    gemini: 'gemini-3.8-flash',
+    deepseek: 'deepseek-v4-flash',
+  },
 }));
 
 describe('Photo Text Association & Vault Master Prompt (TDD)', () => {

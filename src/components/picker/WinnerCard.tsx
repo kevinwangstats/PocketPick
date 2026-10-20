@@ -39,7 +39,7 @@ export function WinnerCard({ winner, onRePick, onConfirm }: WinnerCardProps) {
         <Mono className="text-xs text-zinc-500 font-mono">
           ID: {winner.resource.id.slice(0, 10)}...
         </Mono>
-        <Mono className="text-xs text-zinc-500 font-mono">WEIGHT: {winner.resource.weight}</Mono>
+        <Mono className="text-xs text-zinc-500 font-mono">MODE: UNIFORM (1/N)</Mono>
       </View>
 
       <View className="flex-row space-x-3 gap-3">

@@ -85,21 +85,21 @@
 
 ---
 
-## 3. In-Vault Random Selection & Decision Engine
+## 3. Random Selection & Decision Engine
 
-### US-006: In-Vault CSPRNG Selection
+### US-006: In-Vault & Tab Random Selection (Strictly Uniform & Fast)
 
-- **User Request:** _"The pick functinoality is good, but it should be done within each vault."_
+- **User Request:** _"The pick functinoality is good, but it should be done within each vault."_, _"picker should always use uniform selection, remove weighted functionality"_, and _"the picker should work a little fater."_
 - **User Story:**
-  - _As a_ user reviewing a specific vault,
-  - _I want_ to execute the random selection engine directly inside that vault,
-  - _So that_ I can draw random items (tickets, photos, or both) from that vault without navigating away or relying on global state.
+  - _As a_ user selecting an item from my vault,
+  - _I want_ the picker to operate directly inside the vault, execute quickly, and always select items with strictly uniform equal probability (1/N),
+  - _So that_ selection is fast, unbiased, and free of unnecessary weighting complexity.
 - **Acceptance Criteria:**
-  - Inside `VaultDetailScreen` (`src/app/vault/[id].tsx`), a dedicated **`[ PICK ]`** segmented tab is available alongside **`[ TICKETS ]`** and **`[ PHOTOS ]`**.
-  - The picker operates exclusively over the active vault's resources.
-  - Supports filtering by resource type (**`ALL`**, **`TICKETS`**, or **`PHOTOS`**) and weighting mode (**`UNIFORM`** vs. **`WEIGHTED`**).
-  - Triggers CSPRNG shuffle animation with tactile haptic deceleration ticks.
-  - Decrypts and renders the `WinnerCard` showing decrypted ticket text or photo thumbnail with its associated notes.
+  - **In-Vault Availability:** Inside `VaultDetailScreen` (`src/app/vault/[id].tsx`), a dedicated **`[ PICK ]`** segmented tab is available alongside **`[ TICKETS ]`** and **`[ PHOTOS ]`**.
+  - **Strictly Uniform Selection:** The selection algorithm always uses `pickUniform` via unbiased hardware CSPRNG rejection sampling. Weighted selection functionality is completely removed from the picker engine and UI.
+  - **Snappy Animation Speed:** The shuffle animation duration is reduced to a fast, tactile ~450ms (initial 25ms delay, 8 ticks, smooth deceleration), delivering quick results while maintaining haptic feedback.
+  - **Pool Filtering:** Users can filter the eligible pool by item type (**`ALL`**, **`TICKETS`**, or **`PHOTOS`**).
+  - **Decrypted Winner Display:** Shows the winning ticket text or photo thumbnail with its decrypted notes on `WinnerCard` labeled `MODE: UNIFORM (1/N)`.
 
 ---
 
@@ -123,3 +123,19 @@
     [Vault Master Prompt]:
     <Vault-specific instructions>
     ```
+
+### US-008: System LLM Provider Configuration (Gemini & DeepSeek Only)
+
+- **User Request:** _"In the bottom menu, "System", LLM configuration should only support gemini and deepseek for now. The model is defaulted to gemini 3.8 flash and deepseek v4 flash (agent might have outdated knowledge about if these models are available)"_
+- **User Story:**
+  - _As a_ user configuring AI assistance in the System settings tab,
+  - _I want_ the app to support only Gemini and DeepSeek providers, defaulting to `gemini 3.8 flash` and `deepseek v4 flash`,
+  - _So that_ I can use high-speed, cost-effective models without extraneous provider options.
+- **Acceptance Criteria:**
+  - Under the **System** tab (`ApiKeySettings`), provider selection options are restricted to:
+    1. **`GEMINI`** — Default model: `gemini-3.8-flash`.
+    2. **`DEEPSEEK`** — Default model: `deepseek-v4-flash`.
+  - Stored securely in iOS Keychain via `expo-secure-store`.
+  - Outgoing LLM requests in `llmClient.ts` use the corresponding provider endpoints:
+    - Gemini: `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`
+    - DeepSeek: `https://api.deepseek.com/chat/completions` (OpenAI-compatible protocol with model `deepseek-v4-flash`).

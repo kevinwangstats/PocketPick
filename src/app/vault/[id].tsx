@@ -42,7 +42,6 @@ export default function VaultDetailScreen() {
   const [isMasterPromptModalOpen, setIsMasterPromptModalOpen] = useState(false);
 
   // In-Vault Picker State
-  const [isWeighted, setIsWeighted] = useState(false);
   const [typeFilter, setTypeFilter] = useState<ResourceTypeFilter>('all');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
 
@@ -92,7 +91,6 @@ export default function VaultDetailScreen() {
     vaultId: vaultId ?? '',
     vaultKey: activeVaultKey,
     items: activePool,
-    isWeighted,
     onPickLogged: () => {
       // Pick recorded
     },
@@ -286,8 +284,7 @@ export default function VaultDetailScreen() {
           <View className="flex-row justify-between items-center mb-4">
             <View>
               <Label className="text-zinc-400 text-xs">
-                MODE: {isWeighted ? 'WEIGHTED' : 'UNIFORM'} • POOL: {typeFilter.toUpperCase()} (
-                {activePool.length})
+                SELECTION: UNIFORM • POOL: {typeFilter.toUpperCase()} ({activePool.length})
               </Label>
             </View>
             <Button
@@ -296,7 +293,7 @@ export default function VaultDetailScreen() {
               onPress={() => setFilterModalVisible(true)}
               disabled={pickerState === 'shuffling' || pickerState === 'decelerating'}
             >
-              FILTER & WEIGHTS
+              FILTER POOL
             </Button>
           </View>
 
@@ -366,8 +363,6 @@ export default function VaultDetailScreen() {
       <WeightFilterModal
         visible={filterModalVisible}
         onClose={() => setFilterModalVisible(false)}
-        isWeighted={isWeighted}
-        onToggleWeighted={setIsWeighted}
         typeFilter={typeFilter}
         onSelectTypeFilter={setTypeFilter}
       />

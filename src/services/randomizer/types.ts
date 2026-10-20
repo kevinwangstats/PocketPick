@@ -2,7 +2,7 @@ import { Resource } from '../../db/schema';
 
 export interface PickableItem {
   id: string;
-  weight: number;
+  weight?: number;
   [key: string]: unknown;
 }
 
