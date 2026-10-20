@@ -73,30 +73,41 @@ export default function VaultDetailScreen() {
   };
 
   const handleDeleteVault = () => {
-    Alert.alert(
-      'Delete Vault',
-      'Permanently delete this entire vault? All tickets, photos, and files will be cryptographically shredded. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete Vault',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              if (vaultId) {
-                useSessionStore.getState().lockVault();
-                await deleteVault(vaultId);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-                router.replace('/(tabs)');
-              }
-            } catch (err) {
-              console.error('Failed to delete vault:', err);
-              Alert.alert('Error', 'Failed to delete vault.');
-            }
-          },
+    Alert.alert('Delete Vault', 'Are you sure you want to delete this vault?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete Vault',
+        style: 'destructive',
+        onPress: () => {
+          Alert.alert(
+            'Confirm Permanent Deletion',
+            'FINAL WARNING: All tickets, photos, and cryptographic keys will be permanently shredded from storage.\n\nThis cannot be undone. Are you absolutely certain?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Permanently Shred',
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    if (vaultId) {
+                      useSessionStore.getState().lockVault();
+                      await deleteVault(vaultId);
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+                        () => {},
+                      );
+                      router.replace('/(tabs)');
+                    }
+                  } catch (err) {
+                    console.error('Failed to delete vault:', err);
+                    Alert.alert('Error', 'Failed to delete vault.');
+                  }
+                },
+              },
+            ],
+          );
         },
-      ],
-    );
+      },
+    ]);
   };
 
   if (!activeVaultKey) {

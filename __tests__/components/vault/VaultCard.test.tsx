@@ -39,7 +39,7 @@ describe('VaultCard Component', () => {
     expect(onLockPressMock).toHaveBeenCalledTimes(1);
   });
 
-  it('renders DELETE button and triggers onDeletePress when clicked', async () => {
+  it('renders DELETE swipe action button and triggers onDeletePress when tapped', async () => {
     const onPressMock = jest.fn();
     const onDeletePressMock = jest.fn();
     const { getByText } = await render(
@@ -56,5 +56,24 @@ describe('VaultCard Component', () => {
     expect(deleteButton).toBeTruthy();
     fireEvent.press(deleteButton);
     expect(onDeletePressMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not render DELETE button when onDeletePress is omitted', async () => {
+    const onPressMock = jest.fn();
+    const { queryByText } = await render(
+      <VaultCard id="vault-1" name="Archive" isUnlocked={false} onPress={onPressMock} />,
+    );
+
+    expect(queryByText('DELETE')).toBeNull();
+  });
+
+  it('triggers onPress when card surface is pressed', async () => {
+    const onPressMock = jest.fn();
+    const { getByText } = await render(
+      <VaultCard id="vault-1" name="Archive" isUnlocked={false} onPress={onPressMock} />,
+    );
+
+    fireEvent.press(getByText('Archive'));
+    expect(onPressMock).toHaveBeenCalledTimes(1);
   });
 });
