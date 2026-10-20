@@ -9,6 +9,39 @@ let dbInstance: DrizzleDb | null = null;
 let rawDbInstance: DB | null = null;
 
 /**
+ * Returns the underlying raw DB instance if open.
+ */
+export function getRawDatabase(): DB | null {
+  return rawDbInstance;
+}
+
+/**
+ * Ensures backward-compatible migrations are applied for new columns on existing tables.
+ */
+export async function ensureMigrations(db: DB): Promise<void> {
+  const alterStatements = [
+    'ALTER TABLE vaults ADD COLUMN llm_master_prompt TEXT;',
+    'ALTER TABLE resources ADD COLUMN file_hash TEXT;',
+  ];
+
+  for (const stmt of alterStatements) {
+    if (db.executeSync) {
+      try {
+        db.executeSync(stmt);
+      } catch {
+        // Column already exists
+      }
+    } else {
+      try {
+        await db.execute(stmt);
+      } catch {
+        // Column already exists
+      }
+    }
+  }
+}
+
+/**
  * Initializes the encrypted OP-SQLite database using SQLCipher (256-bit AES).
  * The master encryption key is fetched from the iOS Keychain via getOrCreateDatabaseMasterKey().
  */
@@ -105,12 +138,6 @@ export async function initializeTables(db: DB): Promise<void> {
       );
     `);
 
-    try {
-      db.executeSync('ALTER TABLE resources ADD COLUMN file_hash TEXT;');
-    } catch {
-      // Column already exists
-    }
-
     db.executeSync(`
       CREATE TABLE IF NOT EXISTS api_quotas (
         id TEXT PRIMARY KEY NOT NULL,
@@ -170,12 +197,6 @@ export async function initializeTables(db: DB): Promise<void> {
       );
     `);
 
-    try {
-      await db.execute('ALTER TABLE resources ADD COLUMN file_hash TEXT;');
-    } catch {
-      // Column already exists
-    }
-
     await db.execute(`
       CREATE TABLE IF NOT EXISTS api_quotas (
         id TEXT PRIMARY KEY NOT NULL,
@@ -186,6 +207,8 @@ export async function initializeTables(db: DB): Promise<void> {
       );
     `);
   }
+
+  await ensureMigrations(db);
 }
 
 /**

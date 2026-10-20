@@ -113,7 +113,7 @@
   - _I want_ to set a vault-level LLM master prompt that automatically appends to every query made in that vault,
   - _So that_ all OCR analyses, summaries, and text suggestions adhere to the vault's specific context and formatting guidelines.
 - **Acceptance Criteria:**
-  - Each vault row stores an optional `llm_master_prompt` in SQLite.
+  - Each vault row stores an optional `llm_master_prompt` in SQLite with automatic backward-compatible migration (`ALTER TABLE vaults ADD COLUMN llm_master_prompt TEXT`).
   - The vault detail header includes a **`[ MASTER PROMPT ]`** button opening `VaultMasterPromptModal`.
   - Users can choose from presets (_Concise Bullets_, _Finance & Receipts_, _Document Archive_, _Technical/Dev_) or type custom instructions.
   - When any LLM query is executed within the vault (in `FullImageModal` or `LlmAnalysisModal`), the vault's master prompt is appended to the prompt payload:
