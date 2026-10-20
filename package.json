@@ -62,6 +62,7 @@
     "typecheck": "tsc --noEmit",
     "audit": "./scripts/audit-crypto.sh",
     "e2e": "maestro test .maestro/flows/",
+    "postinstall": "node -e \"const fs=require('fs'),p='node_modules/expo-modules-core/ios/Core/Modules/CoreModule.swift';if(fs.existsSync(p)){let s=fs.readFileSync(p,'utf8');if(s.includes('@ExpoModule\ninternal final class CoreModule')){fs.writeFileSync(p,s.replace('@ExpoModule\ninternal final class CoreModule','internal final class CoreModule'));}}\"",
     "prepare": "husky"
   },
   "lint-staged": {
