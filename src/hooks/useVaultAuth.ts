@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import QuickCrypto from 'react-native-quick-crypto';
+import { Buffer } from '@craftzdog/react-native-buffer';
 import { eq } from 'drizzle-orm';
 import { getDatabase } from '../db/client';
 import { vaults } from '../db/schema';

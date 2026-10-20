@@ -1,5 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
+import { Buffer } from '@craftzdog/react-native-buffer';
 import { decryptBuffer } from '../../crypto/cipher';
 import { shredFile } from '../media/fileShredder';
 import QuickCrypto from 'react-native-quick-crypto';

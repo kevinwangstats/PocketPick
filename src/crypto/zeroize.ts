@@ -1,3 +1,5 @@
+import { Buffer } from '@craftzdog/react-native-buffer';
+
 /**
  * Overwrites sensitive buffer contents in memory with zeroes.
  * Must be invoked whenever session keys, decrypted files, or secrets are decommissioned.

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Image, Pressable, ActivityIndicator, Text } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Buffer } from '@craftzdog/react-native-buffer';
 import { Resource } from '../../db/schema';
 import { decryptBuffer } from '../../crypto/cipher';
 import { getCachedThumbnail, setCachedThumbnail } from '../../services/media/thumbnailCache';

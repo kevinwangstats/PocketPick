@@ -1,4 +1,5 @@
 import QuickCrypto from 'react-native-quick-crypto';
+import { Buffer } from '@craftzdog/react-native-buffer';
 
 export const PBKDF2_ITERATIONS = 100000;
 export const KEY_LENGTH_BYTES = 32; // 256 bits

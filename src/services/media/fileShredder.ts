@@ -1,4 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import { Buffer } from '@craftzdog/react-native-buffer';
 
 /**
  * Cryptographically shreds a file by overwriting its contents with zeroes

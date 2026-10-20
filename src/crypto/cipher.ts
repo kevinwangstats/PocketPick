@@ -1,4 +1,5 @@
 import QuickCrypto from 'react-native-quick-crypto';
+import { Buffer } from '@craftzdog/react-native-buffer';
 import { EncryptedPayload, AuthenticationError } from './types';
 
 export const GCM_IV_LENGTH_BYTES = 12; // 96 bits recommended for AES-GCM

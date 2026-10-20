@@ -1,4 +1,5 @@
 import QuickCrypto from 'react-native-quick-crypto';
+import { Buffer } from '@craftzdog/react-native-buffer';
 import { eq, and } from 'drizzle-orm';
 import { getDatabase } from '../../db/client';
 import { resources, Resource } from '../../db/schema';

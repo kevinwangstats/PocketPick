@@ -1,3 +1,4 @@
+import { Buffer } from '@craftzdog/react-native-buffer';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import * as Haptics from 'expo-haptics';
 import * as FileSystem from 'expo-file-system/legacy';

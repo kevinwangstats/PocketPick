@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Modal, Image, ActivityIndicator, Pressable, Text, Dimensions } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Buffer } from '@craftzdog/react-native-buffer';
 import { Resource } from '../../db/schema';
 import { decryptBuffer } from '../../crypto/cipher';
 import { Label, ErrorText } from '../ui';

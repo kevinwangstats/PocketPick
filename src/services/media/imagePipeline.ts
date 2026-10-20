@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import QuickCrypto from 'react-native-quick-crypto';
+import { Buffer } from '@craftzdog/react-native-buffer';
 import { getDatabase } from '../../db/client';
 import { resources } from '../../db/schema';
 import { encryptBuffer } from '../../crypto/cipher';

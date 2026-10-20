@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { Buffer } from '@craftzdog/react-native-buffer';
 import { zeroizeBuffer } from '../crypto/zeroize';
 
 export interface SessionState {
