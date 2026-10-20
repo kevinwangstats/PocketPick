@@ -39,6 +39,7 @@ export const resources = sqliteTable('resources', {
   encryptedFilePath: text('encrypted_file_path'),
   fileIv: text('file_iv'),
   fileTag: text('file_tag'),
+  fileHash: text('file_hash'),
   encryptedThumbnailPath: text('encrypted_thumbnail_path'),
   thumbnailIv: text('thumbnail_iv'),
   thumbnailTag: text('thumbnail_tag'),

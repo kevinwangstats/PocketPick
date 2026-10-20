@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Dimensions } from 'react-native';
+import { View, Dimensions, Alert } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
 import { Resource } from '../../db/schema';
 import { Button, Card, Label, Body } from '../ui';
 import { ThumbnailTile } from './ThumbnailTile';
@@ -45,15 +46,53 @@ export const EncryptedGallery: React.FC<EncryptedGalleryProps> = ({
 
     setIsImporting(true);
 
+    let importedCount = 0;
+    let duplicateCount = 0;
+    const batchSeenKeys = new Set<string>();
+
     try {
       for (const asset of result.assets) {
-        if (asset.uri) {
-          await ingestImage(asset.uri, vaultId, vaultKey);
+        if (!asset.uri) continue;
+
+        // In-batch deduplication: avoid processing the exact same picker item twice
+        const assetKey = asset.assetId || asset.uri;
+        if (batchSeenKeys.has(assetKey)) {
+          duplicateCount++;
+          continue;
+        }
+        batchSeenKeys.add(assetKey);
+
+        const res = await ingestImage(asset.uri, vaultId, vaultKey);
+        if (res.isDuplicate) {
+          duplicateCount++;
+        } else {
+          importedCount++;
         }
       }
+
       await onRefresh();
+
+      if (duplicateCount > 0) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+        if (importedCount === 0) {
+          Alert.alert(
+            'Photo Already Exists',
+            duplicateCount === 1
+              ? 'This photo is already stored in your vault.'
+              : 'All selected photos are already stored in your vault.',
+          );
+        } else {
+          Alert.alert(
+            'Import Completed',
+            `Imported ${importedCount} photo${importedCount > 1 ? 's' : ''}.\n${duplicateCount} duplicate photo${duplicateCount > 1 ? 's were' : ' was'} skipped.`,
+          );
+        }
+      } else if (importedCount > 0) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      }
     } catch (err) {
       console.error('Image import failed:', err);
+      Alert.alert('Import Failed', 'An error occurred while importing photos.');
     } finally {
       setIsImporting(false);
     }

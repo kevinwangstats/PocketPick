@@ -14,6 +14,8 @@ export const mockQuickCrypto = {
     crypto.createCipheriv(algorithm, key, iv, options),
   createDecipheriv: (algorithm: string, key: Buffer, iv: Buffer | null, options?: unknown) =>
     crypto.createDecipheriv(algorithm, key, iv, options),
+  createHmac: (algorithm: string, key: string | Buffer) => crypto.createHmac(algorithm, key),
+  createHash: (algorithm: string) => crypto.createHash(algorithm),
 };
 
 export default mockQuickCrypto;

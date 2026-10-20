@@ -84,6 +84,7 @@ export async function initializeTables(db: DB): Promise<void> {
         encrypted_file_path TEXT,
         file_iv TEXT,
         file_tag TEXT,
+        file_hash TEXT,
         encrypted_thumbnail_path TEXT,
         thumbnail_iv TEXT,
         thumbnail_tag TEXT,
@@ -102,6 +103,12 @@ export async function initializeTables(db: DB): Promise<void> {
         notes TEXT
       );
     `);
+
+    try {
+      db.executeSync('ALTER TABLE resources ADD COLUMN file_hash TEXT;');
+    } catch {
+      // Column already exists
+    }
 
     db.executeSync(`
       CREATE TABLE IF NOT EXISTS api_quotas (
@@ -141,6 +148,7 @@ export async function initializeTables(db: DB): Promise<void> {
         encrypted_file_path TEXT,
         file_iv TEXT,
         file_tag TEXT,
+        file_hash TEXT,
         encrypted_thumbnail_path TEXT,
         thumbnail_iv TEXT,
         thumbnail_tag TEXT,
@@ -159,6 +167,12 @@ export async function initializeTables(db: DB): Promise<void> {
         notes TEXT
       );
     `);
+
+    try {
+      await db.execute('ALTER TABLE resources ADD COLUMN file_hash TEXT;');
+    } catch {
+      // Column already exists
+    }
 
     await db.execute(`
       CREATE TABLE IF NOT EXISTS api_quotas (
