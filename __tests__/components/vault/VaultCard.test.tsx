@@ -17,7 +17,7 @@ describe('VaultCard Component', () => {
 
     expect(getByText('Personal Secrets')).toBeTruthy();
     expect(getByText('Encrypted notes and keys')).toBeTruthy();
-    expect(getByText('LOCKED')).toBeTruthy();
+    expect(getByText(/locked/i)).toBeTruthy();
   });
 
   it('renders UNLOCKED badge and lock button when isUnlocked is true', async () => {
@@ -33,8 +33,8 @@ describe('VaultCard Component', () => {
       />,
     );
 
-    expect(getByText('UNLOCKED')).toBeTruthy();
-    const lockButton = getByText('LOCK NOW');
+    expect(getByText(/unlocked/i)).toBeTruthy();
+    const lockButton = getByText(/lock (vault|now)/i);
     fireEvent.press(lockButton);
     expect(onLockPressMock).toHaveBeenCalledTimes(1);
   });

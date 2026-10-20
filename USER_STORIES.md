@@ -155,3 +155,20 @@
   - **Top Download Bar Disabled:** React Native's `RCTDevLoadingView` is disabled at native application launch in `AppDelegate.swift` via `RCTDevLoadingViewSetEnabled(false)`. The top "Downloading JavaScript bundle 100%" bar is completely prevented from displaying.
   - **Bottom Status / LogBox Popup Disabled:** In `src/app/_layout.tsx`, `LogBox.ignoreAllLogs(true)` is activated, preventing blank or dev notification overlays from mounting at the bottom of the screen.
   - **Production Invariant:** In production/release builds, dev banners and loading views remain completely stripped and absent.
+
+### US-010: Adaptive Theme Engine & Appearance Customization
+
+- **User Request:** _"I want to edit the app UI. Right now the whole app is quite in your face hardcore. It is dark themed, and it is all caps. This can feel too much and strong for a female user, who may expect light theme, more cute and classic blue and white ios design, or white and pink designs. Can you design a few themes that we can swap out in the system tab"_
+- **User Story:**
+  - _As a_ user personalizing the application aesthetic,
+  - _I want_ to select between multiple visual themes (Classic iOS Blue & White, Sakura Pink, and Cyber Terminal Dark) with adaptive casing and typography,
+  - _So that_ the interface feels elegant, cute, and accessible according to personal taste rather than exclusively hardcore dark monochrome.
+- **Acceptance Criteria:**
+  - **Theme Switcher in System Tab:** An appearance selector in the **System** tab (`ThemeSwitcher`) allows immediate theme switching with visual palette swatches and haptic feedback.
+  - **Included Themes:**
+    1. **`Classic iOS` (Light • Apple Blue & White):** Crisp light background (`#F2F2F7`), white card surfaces, Apple system blue accents (`#007AFF`), 14px rounded corners, standard iOS San Francisco typography, and natural title/sentence casing.
+    2. **`Sakura Pink` (Cute • Rose & Cream):** Warm soft blush background (`#FFF5F7`), white surfaces with delicate rose borders (`#FCE7F3`), sweet vibrant pink accents (`#EC4899`), 16px soft rounded corners, gentle typography, and natural casing.
+    3. **`Cyber Terminal` (Dark • High-Contrast Mono):** The original tactical dark theme with pure black (`#000000`), sharp 0px corners, monospace Courier font, and uppercase styling.
+  - **Adaptive Typography & Casing:** Monospace and forced ALL-CAPS styling are restricted to the Cyber theme; light and cute themes employ natural title/sentence casing and system typography.
+  - **Cross-App Propagation:** Tab navigation bar, headers, buttons, cards, inputs, modal backgrounds, and the iOS status bar (`StatusBar`) dynamically adjust to the active theme.
+  - **Persistence:** Selected theme choice is preserved across restarts via `expo-secure-store`.

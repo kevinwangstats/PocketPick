@@ -1,79 +1,90 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { Text } from 'react-native';
+import { useTheme } from '../../theme';
 
 export default function TabsLayout() {
+  const { theme } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
         headerStyle: {
-          backgroundColor: '#000000',
+          backgroundColor: theme.colors.headerBg,
           borderBottomWidth: 1,
-          borderBottomColor: '#27272A',
+          borderBottomColor: theme.colors.headerBorder,
         },
         headerTitleStyle: {
-          color: '#FFFFFF',
-          fontFamily: 'Courier',
-          fontSize: 15,
+          color: theme.colors.headerText,
+          fontFamily: theme.isMono ? 'Courier' : undefined,
+          fontSize: 16,
           fontWeight: 'bold',
-          letterSpacing: 2,
+          letterSpacing: theme.isUppercase ? 2 : 0,
         },
         tabBarStyle: {
-          backgroundColor: '#000000',
-          borderTopColor: '#27272A',
+          backgroundColor: theme.colors.tabBarBg,
+          borderTopColor: theme.colors.tabBarBorder,
           borderTopWidth: 1,
           height: 64,
           paddingBottom: 10,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: '#FFFFFF',
-        tabBarInactiveTintColor: '#52525B',
+        tabBarActiveTintColor: theme.colors.tabBarActive,
+        tabBarInactiveTintColor: theme.colors.tabBarInactive,
         tabBarLabelStyle: {
-          fontFamily: 'Courier',
-          fontSize: 10,
-          letterSpacing: 1.5,
+          fontFamily: theme.isMono ? 'Courier' : undefined,
+          fontSize: 11,
+          letterSpacing: theme.isUppercase ? 1.5 : 0.2,
           fontWeight: '600',
-          textTransform: 'uppercase',
+          textTransform: theme.isUppercase ? 'uppercase' : 'none',
         },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'VAULTS',
-          tabBarLabel: 'VAULTS',
+          title: theme.isUppercase ? 'VAULTS' : 'Vaults',
+          tabBarLabel: theme.isUppercase ? 'VAULTS' : 'Vaults',
           tabBarIcon: ({ color }) => (
-            <Text style={{ color, fontFamily: 'Courier', fontSize: 16 }}>[V]</Text>
+            <Text style={{ color, fontFamily: theme.isMono ? 'Courier' : undefined, fontSize: 16 }}>
+              {theme.isMono ? '[V]' : '🔐'}
+            </Text>
           ),
         }}
       />
       <Tabs.Screen
         name="randomizer"
         options={{
-          title: 'RANDOMIZER',
-          tabBarLabel: 'PICK',
+          title: theme.isUppercase ? 'RANDOMIZER' : 'Picker',
+          tabBarLabel: theme.isUppercase ? 'PICK' : 'Pick',
           tabBarIcon: ({ color }) => (
-            <Text style={{ color, fontFamily: 'Courier', fontSize: 16 }}>[?]</Text>
+            <Text style={{ color, fontFamily: theme.isMono ? 'Courier' : undefined, fontSize: 16 }}>
+              {theme.isMono ? '[?]' : '🎲'}
+            </Text>
           ),
         }}
       />
       <Tabs.Screen
         name="history"
         options={{
-          title: 'SELECTION AUDIT',
-          tabBarLabel: 'TIMELINE',
+          title: theme.isUppercase ? 'SELECTION AUDIT' : 'Timeline',
+          tabBarLabel: theme.isUppercase ? 'TIMELINE' : 'Timeline',
           tabBarIcon: ({ color }) => (
-            <Text style={{ color, fontFamily: 'Courier', fontSize: 16 }}>[#]</Text>
+            <Text style={{ color, fontFamily: theme.isMono ? 'Courier' : undefined, fontSize: 16 }}>
+              {theme.isMono ? '[#]' : '📜'}
+            </Text>
           ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'SYSTEM & SECURITY',
-          tabBarLabel: 'SYSTEM',
+          title: theme.isUppercase ? 'SYSTEM & SECURITY' : 'Settings',
+          tabBarLabel: theme.isUppercase ? 'SYSTEM' : 'System',
           tabBarIcon: ({ color }) => (
-            <Text style={{ color, fontFamily: 'Courier', fontSize: 16 }}>[*]</Text>
+            <Text style={{ color, fontFamily: theme.isMono ? 'Courier' : undefined, fontSize: 16 }}>
+              {theme.isMono ? '[*]' : '⚙️'}
+            </Text>
           ),
         }}
       />

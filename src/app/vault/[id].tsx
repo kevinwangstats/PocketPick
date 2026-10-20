@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { eq } from 'drizzle-orm';
 import { Button, Card, H1, Body, Label } from '@/components/ui';
+import { useTheme } from '@/theme';
 import { TicketCard, TicketEditorModal } from '@/components/tickets';
 import { EncryptedGallery } from '@/components/media';
 import { VaultMasterPromptModal } from '@/components/vault';
@@ -32,6 +33,7 @@ export default function VaultDetailScreen() {
   const router = useRouter();
   const { id: vaultId } = useLocalSearchParams<{ id: string }>();
   const activeVaultKey = useSessionStore((state) => state.activeVaultKey);
+  const { theme } = useTheme();
 
   const [vaultName, setVaultName] = useState('VAULT');
   const [activeTab, setActiveTab] = useState<ContentTab>('tickets');
@@ -155,7 +157,10 @@ export default function VaultDetailScreen() {
 
   if (!activeVaultKey) {
     return (
-      <View className="flex-1 bg-black items-center justify-center px-6">
+      <View
+        style={{ backgroundColor: theme.colors.background }}
+        className="flex-1 items-center justify-center px-6"
+      >
         <Label className="mb-2 text-zinc-600">[ ACCESS DENIED ]</Label>
         <H1 className="mb-4 text-center">VAULT IS LOCKED</H1>
         <Body className="text-zinc-500 text-center mb-6">
@@ -166,7 +171,7 @@ export default function VaultDetailScreen() {
   }
 
   return (
-    <View className="flex-1 bg-black px-4 pt-4">
+    <View style={{ backgroundColor: theme.colors.background }} className="flex-1 px-4 pt-4">
       {/* Vault Header with Master Prompt Settings */}
       <View className="flex-row justify-between items-center mb-3">
         <View className="flex-1 pr-2">

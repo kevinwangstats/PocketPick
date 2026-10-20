@@ -3,6 +3,7 @@ import { View, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Button, Card, H1, Body, Label } from '@/components/ui';
+import { useTheme } from '@/theme';
 import { VaultCard, CreateVaultModal, UnlockVaultModal } from '@/components/vault';
 import { useVaultAuth } from '@/hooks/useVaultAuth';
 import { getDatabase } from '@/db/client';
@@ -12,6 +13,7 @@ import { deleteVault } from '@/services/resources/resourceManager';
 export default function VaultsScreen() {
   const router = useRouter();
   const { activeVaultId, isUnlocked, createVault, unlockVault, lockVault } = useVaultAuth();
+  const { theme } = useTheme();
 
   const [vaultList, setVaultList] = useState<Vault[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -99,7 +101,7 @@ export default function VaultsScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-black px-5 py-6">
+    <ScrollView style={{ backgroundColor: theme.colors.background }} className="flex-1 px-5 py-6">
       <Label className="mb-2">ENVELOPE ENCRYPTION ACTIVE</Label>
       <H1 className="mb-6">SECURE VAULTS</H1>
 

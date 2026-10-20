@@ -6,6 +6,7 @@ import {
   PressableProps,
   GestureResponderEvent,
 } from 'react-native';
+import { useTheme } from '../../theme';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'destructive';
 
@@ -27,24 +28,47 @@ export const Button: React.FC<ButtonProps> = ({
   onPress,
   ...props
 }) => {
+  const { theme } = useTheme();
   const isInteractive = !disabled && !loading;
 
-  const baseContainerStyle =
-    'h-12 px-5 flex-row items-center justify-center rounded-none active:opacity-80';
-
-  const variantContainerStyles: Record<ButtonVariant, string> = {
-    primary: 'bg-white border border-white',
-    secondary: 'bg-black border border-zinc-700',
-    destructive: 'bg-black border border-red-500',
+  const getContainerStyle = () => {
+    switch (variant) {
+      case 'secondary':
+        return {
+          backgroundColor: theme.colors.secondaryButtonBg,
+          borderColor: theme.colors.secondaryButtonBorder,
+          borderWidth: 1,
+        };
+      case 'destructive':
+        return {
+          backgroundColor: theme.colors.destructiveButtonBg,
+          borderColor: theme.colors.destructiveButtonBorder,
+          borderWidth: 1,
+        };
+      case 'primary':
+      default:
+        return {
+          backgroundColor: theme.colors.accent,
+          borderColor: theme.colors.accentBorder,
+          borderWidth: 1,
+        };
+    }
   };
 
-  const variantTextStyles: Record<ButtonVariant, string> = {
-    primary: 'text-black font-semibold',
-    secondary: 'text-white font-medium',
-    destructive: 'text-red-400 font-medium',
+  const getTextColor = () => {
+    switch (variant) {
+      case 'secondary':
+        return theme.colors.secondaryButtonText;
+      case 'destructive':
+        return theme.colors.destructiveButtonText;
+      case 'primary':
+      default:
+        return theme.colors.accentText;
+    }
   };
 
-  const disabledStyle = disabled ? 'opacity-40' : '';
+  const containerStyle = getContainerStyle();
+  const textColor = getTextColor();
 
   return (
     <Pressable
@@ -52,18 +76,30 @@ export const Button: React.FC<ButtonProps> = ({
       accessibilityState={{ disabled: !isInteractive }}
       disabled={!isInteractive}
       onPress={isInteractive ? onPress : undefined}
-      className={`${baseContainerStyle} ${variantContainerStyles[variant]} ${disabledStyle} ${className}`}
+      style={[
+        {
+          height: 48,
+          paddingHorizontal: 20,
+          borderRadius: theme.borderRadius,
+          opacity: disabled ? 0.4 : 1,
+        },
+        containerStyle,
+      ]}
+      className={`flex-row items-center justify-center active:opacity-80 ${className}`}
       {...props}
     >
       {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={variant === 'primary' ? '#000000' : '#FFFFFF'}
-          testID="button-loading-indicator"
-        />
+        <ActivityIndicator size="small" color={textColor} testID="button-loading-indicator" />
       ) : typeof children === 'string' ? (
         <Text
-          className={`text-sm tracking-wider uppercase font-mono ${variantTextStyles[variant]}`}
+          style={{
+            color: textColor,
+            fontFamily: theme.isMono ? 'Courier' : undefined,
+            textTransform: theme.isUppercase ? 'uppercase' : 'none',
+            letterSpacing: theme.isUppercase ? 1.5 : 0.5,
+            fontWeight: '600',
+            fontSize: 14,
+          }}
         >
           {children}
         </Text>

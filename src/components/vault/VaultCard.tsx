@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Card, Label, Body } from '../ui';
+import { useTheme } from '../../theme';
 
 export interface VaultCardProps {
   id: string;
@@ -35,6 +36,7 @@ export const VaultCard: React.FC<VaultCardProps> = ({
   const translateX = useRef(new Animated.Value(0)).current;
   const isOpenRef = useRef(false);
   const [, setIsOpenState] = useState(false);
+  const { theme } = useTheme();
 
   const openSwipe = () => {
     Animated.timing(translateX, {
@@ -141,21 +143,37 @@ export const VaultCard: React.FC<VaultCardProps> = ({
 
       {/* Front Swipable Card Surface */}
       <Animated.View style={[{ transform: [{ translateX }] }]} {...panResponder.panHandlers}>
-        <Card className="bg-black">
+        <Card>
           <Pressable onPress={handleCardPress} className="active:opacity-80">
             <View className="flex-row items-center justify-between mb-1.5">
               <Label className="text-white font-bold">{name}</Label>
               <View
-                className={`px-2 py-0.5 border ${
-                  isUnlocked ? 'bg-white border-white' : 'bg-black border-zinc-700'
-                }`}
+                style={{
+                  paddingHorizontal: 8,
+                  paddingVertical: 2,
+                  borderRadius: theme.borderRadius ? 6 : 0,
+                  borderWidth: 1,
+                  borderColor: isUnlocked ? theme.colors.accent : theme.colors.cardBorder,
+                  backgroundColor: isUnlocked ? theme.colors.badgeBg : theme.colors.card,
+                }}
               >
                 <Text
-                  className={`text-xs font-mono uppercase tracking-wider ${
-                    isUnlocked ? 'text-black font-bold' : 'text-zinc-400'
-                  }`}
+                  style={{
+                    color: isUnlocked ? theme.colors.badgeText : theme.colors.textMuted,
+                    fontSize: 11,
+                    fontWeight: isUnlocked ? '700' : '500',
+                    fontFamily: theme.isMono ? 'Courier' : undefined,
+                    textTransform: theme.isUppercase ? 'uppercase' : 'none',
+                    letterSpacing: theme.isUppercase ? 1.5 : 0.5,
+                  }}
                 >
-                  {isUnlocked ? 'UNLOCKED' : 'LOCKED'}
+                  {isUnlocked
+                    ? theme.isUppercase
+                      ? 'UNLOCKED'
+                      : 'Unlocked'
+                    : theme.isUppercase
+                      ? 'LOCKED'
+                      : 'Locked'}
                 </Text>
               </View>
             </View>
@@ -168,14 +186,37 @@ export const VaultCard: React.FC<VaultCardProps> = ({
           </Pressable>
 
           {isUnlocked && onLockPress && (
-            <View className="border-t border-zinc-800 pt-2.5 mt-1 flex-row justify-end items-center">
+            <View
+              style={{
+                borderTopWidth: 1,
+                borderTopColor: theme.colors.divider,
+                paddingTop: 10,
+                marginTop: 4,
+              }}
+              className="flex-row justify-end items-center"
+            >
               <Pressable
                 onPress={onLockPress}
                 hitSlop={8}
-                className="px-3 py-1 bg-zinc-900 border border-zinc-700 active:bg-zinc-800"
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 4,
+                  borderRadius: theme.borderRadius ? 6 : 0,
+                  backgroundColor: theme.colors.secondaryButtonBg,
+                  borderColor: theme.colors.secondaryButtonBorder,
+                  borderWidth: 1,
+                }}
               >
-                <Text className="text-xs font-mono text-zinc-300 uppercase tracking-wider">
-                  LOCK NOW
+                <Text
+                  style={{
+                    color: theme.colors.secondaryButtonText,
+                    fontSize: 11,
+                    fontFamily: theme.isMono ? 'Courier' : undefined,
+                    textTransform: theme.isUppercase ? 'uppercase' : 'none',
+                    letterSpacing: theme.isUppercase ? 1.5 : 0.5,
+                  }}
+                >
+                  {theme.isUppercase ? 'LOCK NOW' : 'Lock Vault'}
                 </Text>
               </Pressable>
             </View>
@@ -191,7 +232,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     position: 'relative',
     overflow: 'hidden',
-    backgroundColor: '#000000',
+    backgroundColor: 'transparent',
   },
   actionContainer: {
     position: 'absolute',

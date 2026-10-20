@@ -12,9 +12,11 @@ import {
   ResourceTypeFilter,
 } from '../../components/picker';
 import { H1, Label, Body, Button, Card } from '../../components/ui';
+import { useTheme } from '../../theme';
 
 export default function RandomizerScreen() {
   const { activeVaultId, activeVaultKey } = useSessionStore();
+  const { theme } = useTheme();
   const [items, setItems] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(false);
   const [typeFilter, setTypeFilter] = useState<ResourceTypeFilter>('all');
@@ -60,7 +62,8 @@ export default function RandomizerScreen() {
 
   return (
     <ScrollView
-      className="flex-1 bg-black px-5 py-6"
+      style={{ backgroundColor: theme.colors.background }}
+      className="flex-1 px-5 py-6"
       refreshControl={
         <RefreshControl refreshing={loading} onRefresh={loadPool} tintColor="#FFFFFF" />
       }

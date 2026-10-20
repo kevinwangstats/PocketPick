@@ -2,13 +2,15 @@ import React, { useState } from 'react';
 import { ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, Input, Card, H1, Label } from '@/components/ui';
+import { useTheme } from '@/theme';
 
 export default function UnlockModal() {
   const router = useRouter();
   const [passphrase, setPassphrase] = useState('');
+  const { theme } = useTheme();
 
   return (
-    <ScrollView className="flex-1 bg-black px-5 py-6">
+    <ScrollView style={{ backgroundColor: theme.colors.background }} className="flex-1 px-5 py-6">
       <Label className="mb-2">AUTHORIZATION REQUIRED</Label>
       <H1 className="mb-6">ENTER PASSPHRASE</H1>
 

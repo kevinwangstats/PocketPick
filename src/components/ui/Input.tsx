@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, TextInput, TextInputProps, Text } from 'react-native';
+import { useTheme } from '../../theme';
 
 export interface InputProps extends TextInputProps {
   label?: string;
@@ -13,26 +14,53 @@ export const Input: React.FC<InputProps> = ({
   error,
   isMono = false,
   className = '',
+  style,
   onFocus,
   onBlur,
   ...props
 }) => {
+  const { theme } = useTheme();
   const [isFocused, setIsFocused] = useState(false);
 
-  const borderClass = error ? 'border-red-500' : isFocused ? 'border-white' : 'border-zinc-800';
+  const borderColor = error
+    ? theme.colors.destructiveButtonBg
+    : isFocused
+      ? theme.colors.inputBorderFocus
+      : theme.colors.inputBorder;
 
   return (
     <View className={`w-full mb-4 ${className}`}>
       {label && (
-        <Text className="text-xs font-mono uppercase tracking-widest text-zinc-400 mb-2">
+        <Text
+          style={{
+            color: theme.colors.textSecondary,
+            fontFamily: theme.isMono ? 'Courier' : undefined,
+            textTransform: theme.isUppercase ? 'uppercase' : 'none',
+            letterSpacing: theme.isUppercase ? 1.5 : 0.5,
+            fontSize: 12,
+            marginBottom: 6,
+            fontWeight: '500',
+          }}
+        >
           {label}
         </Text>
       )}
       <TextInput
-        className={`h-12 px-4 bg-zinc-950 text-white text-base border rounded-none ${borderClass} ${
-          isMono ? 'font-mono' : ''
-        }`}
-        placeholderTextColor="#71717A"
+        style={[
+          {
+            height: 48,
+            paddingHorizontal: 16,
+            backgroundColor: theme.colors.inputBg,
+            color: theme.colors.inputText,
+            borderColor: borderColor,
+            borderWidth: 1,
+            borderRadius: theme.borderRadius,
+            fontSize: 15,
+            fontFamily: isMono || theme.isMono ? 'Courier' : undefined,
+          },
+          style,
+        ]}
+        placeholderTextColor={theme.colors.inputPlaceholder}
         onFocus={(e) => {
           setIsFocused(true);
           onFocus?.(e);
@@ -44,7 +72,15 @@ export const Input: React.FC<InputProps> = ({
         {...props}
       />
       {error && (
-        <Text testID="input-error-text" className="text-xs font-mono text-red-400 mt-1.5">
+        <Text
+          testID="input-error-text"
+          style={{
+            color: theme.colors.destructiveButtonBg,
+            fontFamily: theme.isMono ? 'Courier' : undefined,
+            fontSize: 12,
+            marginTop: 4,
+          }}
+        >
           {error}
         </Text>
       )}

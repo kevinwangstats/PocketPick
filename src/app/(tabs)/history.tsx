@@ -8,9 +8,11 @@ import {
 } from '../../services/history/historyService';
 import { HistoryTimeline } from '../../components/history';
 import { H1, Label, Card, Body } from '../../components/ui';
+import { useTheme } from '../../theme';
 
 export default function HistoryScreen() {
   const { activeVaultId, activeVaultKey } = useSessionStore();
+  const { theme } = useTheme();
   const [logs, setLogs] = useState<HistoryLogWithResource[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -55,7 +57,7 @@ export default function HistoryScreen() {
   };
 
   return (
-    <View className="flex-1 bg-black px-5 py-6">
+    <View style={{ backgroundColor: theme.colors.background }} className="flex-1 px-5 py-6">
       <Label className="mb-1 text-zinc-500">IMMUTABLE LOCAL AUDIT</Label>
       <H1 className="mb-4">SELECTION LOG</H1>
 
