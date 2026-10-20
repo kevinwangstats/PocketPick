@@ -33,6 +33,13 @@ function TestComponent() {
           createVault('Valid Name', '', '123').catch(() => {});
         }}
       />
+      <Button
+        testID="create-dup-btn"
+        title="Create Duplicate"
+        onPress={() => {
+          createVault('confidential vault', 'Different', 'AnotherPass123!').catch(() => {});
+        }}
+      />
       <Button testID="lock-btn" title="Lock" onPress={() => lockVault()} />
     </View>
   );

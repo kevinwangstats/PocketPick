@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, ScrollView, Pressable, Text } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { View, ScrollView, Pressable, Text, Alert } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { eq, and } from 'drizzle-orm';
 import { Button, Card, H1, Body, Label } from '@/components/ui';
 import { TicketCard, TicketEditorModal } from '@/components/tickets';
@@ -14,11 +15,12 @@ import {
   DecryptedTicket,
   TicketPayload,
 } from '@/services/tickets/ticketService';
-import { deleteResource } from '@/services/resources/resourceManager';
+import { deleteResource, deleteVault } from '@/services/resources/resourceManager';
 
 type ContentTab = 'tickets' | 'photos';
 
 export default function VaultDetailScreen() {
+  const router = useRouter();
   const { id: vaultId } = useLocalSearchParams<{ id: string }>();
   const activeVaultKey = useSessionStore((state) => state.activeVaultKey);
 
@@ -68,6 +70,33 @@ export default function VaultDetailScreen() {
     } catch (err) {
       console.error('Failed to delete resource:', err);
     }
+  };
+
+  const handleDeleteVault = () => {
+    Alert.alert(
+      'Delete Vault',
+      'Permanently delete this entire vault? All tickets, photos, and files will be cryptographically shredded. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Vault',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (vaultId) {
+                useSessionStore.getState().lockVault();
+                await deleteVault(vaultId);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+                router.replace('/(tabs)');
+              }
+            } catch (err) {
+              console.error('Failed to delete vault:', err);
+              Alert.alert('Error', 'Failed to delete vault.');
+            }
+          },
+        },
+      ],
+    );
   };
 
   if (!activeVaultKey) {
@@ -162,6 +191,18 @@ export default function VaultDetailScreen() {
           onDeletePhoto={handleDeleteResource}
         />
       )}
+
+      {/* Bottom Danger Action */}
+      <View className="py-3 border-t border-zinc-900 items-center">
+        <Pressable
+          onPress={handleDeleteVault}
+          className="px-4 py-2 border border-red-900/60 active:bg-red-950"
+        >
+          <Text className="text-xs font-mono text-red-500 uppercase tracking-widest">
+            [ DESTROY VAULT ]
+          </Text>
+        </Pressable>
+      </View>
 
       <TicketEditorModal
         visible={isTicketModalOpen}

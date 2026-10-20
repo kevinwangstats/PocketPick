@@ -9,6 +9,7 @@ export interface VaultCardProps {
   isUnlocked: boolean;
   onPress: () => void;
   onLockPress?: () => void;
+  onDeletePress?: () => void;
 }
 
 export const VaultCard: React.FC<VaultCardProps> = ({
@@ -17,6 +18,7 @@ export const VaultCard: React.FC<VaultCardProps> = ({
   isUnlocked,
   onPress,
   onLockPress,
+  onDeletePress,
 }) => {
   return (
     <Card className="mb-3">
@@ -45,18 +47,31 @@ export const VaultCard: React.FC<VaultCardProps> = ({
         )}
       </Pressable>
 
-      {isUnlocked && onLockPress && (
-        <View className="border-t border-zinc-800 pt-2.5 mt-1 flex-row justify-end">
+      <View className="border-t border-zinc-800 pt-2.5 mt-1 flex-row justify-between items-center">
+        {onDeletePress ? (
+          <Pressable
+            onPress={onDeletePress}
+            hitSlop={8}
+            className="px-2.5 py-1 bg-black border border-red-900/60 active:bg-red-950"
+          >
+            <Text className="text-xs font-mono text-red-400 uppercase tracking-wider">DELETE</Text>
+          </Pressable>
+        ) : (
+          <View />
+        )}
+
+        {isUnlocked && onLockPress && (
           <Pressable
             onPress={onLockPress}
+            hitSlop={8}
             className="px-3 py-1 bg-zinc-900 border border-zinc-700 active:bg-zinc-800"
           >
             <Text className="text-xs font-mono text-zinc-300 uppercase tracking-wider">
               LOCK NOW
             </Text>
           </Pressable>
-        </View>
-      )}
+        )}
+      </View>
     </Card>
   );
 };

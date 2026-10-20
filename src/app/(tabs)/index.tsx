@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, ScrollView } from 'react-native';
+import { View, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { Button, Card, H1, Body, Label } from '@/components/ui';
 import { VaultCard, CreateVaultModal, UnlockVaultModal } from '@/components/vault';
 import { useVaultAuth } from '@/hooks/useVaultAuth';
 import { getDatabase } from '@/db/client';
 import { vaults as vaultsTable, Vault } from '@/db/schema';
+import { deleteVault } from '@/services/resources/resourceManager';
 
 export default function VaultsScreen() {
   const router = useRouter();
@@ -30,14 +32,10 @@ export default function VaultsScreen() {
   }, [loadVaults]);
 
   const handleCreateVault = async (name: string, description: string, passphrase: string) => {
-    try {
-      const newId = await createVault(name, description, passphrase);
-      await loadVaults();
-      setIsCreateModalOpen(false);
-      router.push({ pathname: '/vault/[id]', params: { id: newId } });
-    } catch (err) {
-      console.error('Failed to create vault:', err);
-    }
+    const newId = await createVault(name, description, passphrase);
+    await loadVaults();
+    setIsCreateModalOpen(false);
+    router.push({ pathname: '/vault/[id]', params: { id: newId } });
   };
 
   const handleSelectVault = (vault: Vault) => {
@@ -58,6 +56,33 @@ export default function VaultsScreen() {
       return true;
     }
     return false;
+  };
+
+  const handleDeleteVault = (vault: Vault) => {
+    Alert.alert(
+      'Delete Vault',
+      `Permanently delete "${vault.name}"? All encrypted notes and photos inside will be cryptographically shredded. This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              if (activeVaultId === vault.id) {
+                lockVault();
+              }
+              await deleteVault(vault.id);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+              await loadVaults();
+            } catch (err) {
+              console.error('Failed to delete vault:', err);
+              Alert.alert('Error', 'Failed to delete vault.');
+            }
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -92,6 +117,7 @@ export default function VaultsScreen() {
             isUnlocked={activeVaultId === vault.id && isUnlocked}
             onPress={() => handleSelectVault(vault)}
             onLockPress={lockVault}
+            onDeletePress={() => handleDeleteVault(vault)}
           />
         ))
       )}

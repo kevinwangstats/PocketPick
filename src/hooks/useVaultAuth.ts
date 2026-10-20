@@ -42,7 +42,8 @@ export function useVaultAuth(): UseVaultAuthReturn {
       let derivedKey: Buffer | null = null;
 
       try {
-        if (!name.trim()) {
+        const trimmedName = name.trim();
+        if (!trimmedName) {
           throw new Error('Vault name is required');
         }
         if (!passphrase || passphrase.length < 6) {
@@ -50,6 +51,14 @@ export function useVaultAuth(): UseVaultAuthReturn {
         }
 
         const db = await getDatabase();
+        const existingVaults = await db.select().from(vaults);
+        const nameExists = existingVaults.some(
+          (v) => v.name.trim().toLowerCase() === trimmedName.toLowerCase(),
+        );
+        if (nameExists) {
+          throw new Error(`A vault named "${trimmedName}" already exists`);
+        }
+
         const vaultId = QuickCrypto.randomBytes(16).toString('hex');
         const salt = generateSalt();
 

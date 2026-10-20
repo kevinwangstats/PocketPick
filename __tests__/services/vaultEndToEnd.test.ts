@@ -2,7 +2,7 @@ import { getDatabase, closeDatabase } from '@/db/client';
 import { vaults as vaultsTable } from '@/db/schema';
 import { createTicket, getDecryptedTickets } from '@/services/tickets/ticketService';
 import { ingestImage } from '@/services/media/imagePipeline';
-import { deleteResource } from '@/services/resources/resourceManager';
+import { deleteResource, deleteVault } from '@/services/resources/resourceManager';
 import { deriveVaultKey, generateSalt } from '@/crypto/kdf';
 import { encryptString } from '@/crypto/cipher';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -297,6 +297,50 @@ describe('End-to-End Vault Persistence & Resource Management', () => {
 
     // Delete photo resource
     await deleteResource(result.resourceId);
+    expect(storage.resources).toHaveLength(0);
+  });
+
+  it('securely deletes entire vault, cascading to all resources and database rows', async () => {
+    const salt = generateSalt();
+    const vaultId = 'vault-to-delete-999';
+
+    storage.vaults.push({
+      id: vaultId,
+      name: 'Temporary Stash',
+      description: 'To be shredded',
+      salt: salt.toString('base64'),
+      verifierCipher: 'cipher',
+      verifierIv: 'iv',
+      verifierTag: 'tag',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    storage.resources.push({
+      id: 'res-1',
+      vaultId,
+      type: 'photo',
+      encryptedFilePath: 'file:///vaults/res-1.enc',
+      encryptedThumbnailPath: 'file:///vaults/res-1_thumb.enc',
+    } as any);
+
+    const db = await getDatabase();
+    jest.spyOn(db, 'delete').mockImplementation((table: any) => {
+      return {
+        where: () => {
+          if (table === vaultsTable) {
+            storage.vaults = storage.vaults.filter((v) => v.id !== vaultId);
+          } else {
+            storage.resources = storage.resources.filter((r) => r.vaultId !== vaultId);
+          }
+          return Promise.resolve();
+        },
+      } as any;
+    });
+
+    await deleteVault(vaultId);
+
+    expect(storage.vaults).toHaveLength(0);
     expect(storage.resources).toHaveLength(0);
   });
 });

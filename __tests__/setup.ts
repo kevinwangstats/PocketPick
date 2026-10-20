@@ -147,3 +147,7 @@ jest.mock(
   }),
   { virtual: true },
 );
+
+jest.mock('@shopify/flash-list', () => ({
+  FlashList: 'FlashList',
+}));

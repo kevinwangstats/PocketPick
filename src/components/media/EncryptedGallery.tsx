@@ -35,7 +35,7 @@ export const EncryptedGallery: React.FC<EncryptedGalleryProps> = ({
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: false,
+      allowsMultipleSelection: true,
       quality: 1,
     });
 
@@ -43,11 +43,14 @@ export const EncryptedGallery: React.FC<EncryptedGalleryProps> = ({
       return;
     }
 
-    const pickedUri = result.assets[0].uri;
     setIsImporting(true);
 
     try {
-      await ingestImage(pickedUri, vaultId, vaultKey);
+      for (const asset of result.assets) {
+        if (asset.uri) {
+          await ingestImage(asset.uri, vaultId, vaultKey);
+        }
+      }
       await onRefresh();
     } catch (err) {
       console.error('Image import failed:', err);
@@ -66,7 +69,7 @@ export const EncryptedGallery: React.FC<EncryptedGalleryProps> = ({
           onPress={handlePickAndImport}
           className="h-9 px-3"
         >
-          + IMPORT PHOTO
+          {isImporting ? 'IMPORTING...' : '+ IMPORT PHOTOS'}
         </Button>
       </View>
 
@@ -74,10 +77,11 @@ export const EncryptedGallery: React.FC<EncryptedGalleryProps> = ({
         <Card className="py-8 items-center justify-center">
           <Label className="mb-2">GALLERY EMPTY</Label>
           <Body className="text-zinc-500 text-center mb-4">
-            Import images from your device. Each photo is encrypted and stored as a .enc file.
+            Import images from your device. Select one or multiple photos to encrypt and store
+            safely.
           </Body>
           <Button variant="primary" loading={isImporting} onPress={handlePickAndImport}>
-            SELECT FIRST PHOTO
+            {isImporting ? 'IMPORTING...' : 'SELECT PHOTOS'}
           </Button>
         </Card>
       ) : (

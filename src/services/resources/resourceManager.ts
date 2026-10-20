@@ -1,7 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { eq } from 'drizzle-orm';
 import { getDatabase } from '../../db/client';
-import { resources, vaults } from '../../db/schema';
+import { resources, vaults, historyLogs } from '../../db/schema';
 import { shredFile } from '../media/fileShredder';
 import { thumbnailCache } from '../media/thumbnailCache';
 
@@ -62,5 +62,7 @@ export async function deleteVault(vaultId: string): Promise<void> {
     // Ignore if directory did not exist
   }
 
+  await db.delete(historyLogs).where(eq(historyLogs.vaultId, vaultId));
+  await db.delete(resources).where(eq(resources.vaultId, vaultId));
   await db.delete(vaults).where(eq(vaults.id, vaultId));
 }
