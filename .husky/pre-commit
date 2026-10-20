@@ -1,3 +1,4 @@
+export DEVELOPER_DIR=/Library/Developer/CommandLineTools
 npx lint-staged
 npm run typecheck
 npm test
