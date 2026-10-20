@@ -5,6 +5,7 @@ export interface LlmAnalysisRequest {
   systemPrompt?: string;
   userPrompt: string;
   contextText: string;
+  masterPrompt?: string;
 }
 
 export interface LlmAnalysisResponse {
@@ -16,6 +17,7 @@ export interface LlmAnalysisResponse {
 /**
  * Sends a query to the configured LLM provider.
  * Strictly enforces the 100-request monthly quota guard before sending any network request.
+ * Appends the vault-level master prompt whenever present.
  */
 export async function queryLlm(request: LlmAnalysisRequest): Promise<LlmAnalysisResponse> {
   const apiKey = await getLlmApiKey();
@@ -28,7 +30,10 @@ export async function queryLlm(request: LlmAnalysisRequest): Promise<LlmAnalysis
   // Enforce monthly quota barrier FIRST. Throws QuotaExceededError if limit reached.
   const quotaUsed = await incrementAndEnforceQuota();
 
-  const fullPrompt = `${request.userPrompt}\n\n---\n${request.contextText}`;
+  let fullPrompt = `${request.userPrompt}\n\n---\n${request.contextText}`;
+  if (request.masterPrompt && request.masterPrompt.trim().length > 0) {
+    fullPrompt = `${fullPrompt}\n\n[Vault Master Prompt]:\n${request.masterPrompt.trim()}`;
+  }
 
   // 15-second timeout controller
   const controller = new AbortController();

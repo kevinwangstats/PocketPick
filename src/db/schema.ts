@@ -12,6 +12,7 @@ export const vaults = sqliteTable('vaults', {
   verifierCipher: text('verifier_cipher').notNull(), // Base64 ciphertext of constant verifier
   verifierIv: text('verifier_iv').notNull(), // Base64 12-byte GCM IV
   verifierTag: text('verifier_tag').notNull(), // Base64 16-byte GCM Auth Tag
+  llmMasterPrompt: text('llm_master_prompt'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });

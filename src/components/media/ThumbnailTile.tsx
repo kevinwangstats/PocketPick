@@ -113,6 +113,11 @@ export const ThumbnailTile: React.FC<ThumbnailTileProps> = ({
           <Text className="text-[10px] font-mono text-zinc-600">[LOCKED]</Text>
         </View>
       )}
+      {Boolean(resource.encryptedPayload) && (
+        <View className="absolute bottom-1 right-1 bg-black/80 px-1 border border-zinc-700">
+          <Text className="text-[8px] font-mono text-zinc-300">NOTE</Text>
+        </View>
+      )}
     </Pressable>
   );
 };

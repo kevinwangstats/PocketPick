@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Modal, ScrollView, Pressable, TextInput, Alert } from 'react-native';
 import { PROMPT_PRESETS } from '../../services/llm/promptTemplates';
 import { queryLlm } from '../../services/llm/llmClient';
+import { getVaultMasterPrompt } from '../../services/vault/vaultService';
 import { createTicket } from '../../services/tickets/ticketService';
 import { Card, H2, Label, Body, Mono, Button, ErrorText } from '../ui';
 
@@ -36,9 +37,11 @@ export function LlmAnalysisModal({
     setLlmOutput(null);
 
     try {
+      const masterPrompt = vaultId ? await getVaultMasterPrompt(vaultId) : undefined;
       const response = await queryLlm({
         userPrompt: promptToUse,
         contextText: extractedText,
+        masterPrompt,
       });
       setLlmOutput(response.content);
     } catch (err: unknown) {

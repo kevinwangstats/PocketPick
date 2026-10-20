@@ -67,6 +67,7 @@ export async function initializeTables(db: DB): Promise<void> {
         verifier_cipher TEXT NOT NULL,
         verifier_iv TEXT NOT NULL,
         verifier_tag TEXT NOT NULL,
+        llm_master_prompt TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );
@@ -131,6 +132,7 @@ export async function initializeTables(db: DB): Promise<void> {
         verifier_cipher TEXT NOT NULL,
         verifier_iv TEXT NOT NULL,
         verifier_tag TEXT NOT NULL,
+        llm_master_prompt TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );

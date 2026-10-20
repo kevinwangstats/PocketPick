@@ -93,9 +93,27 @@ export function usePicker({
           setCachedThumbnail(item.id, thumbnailBase64);
         }
 
+        let photoNote: string | undefined;
+        if (item.encryptedPayload && item.payloadIv && item.payloadTag) {
+          try {
+            photoNote = decryptString(
+              {
+                ciphertext: item.encryptedPayload,
+                iv: item.payloadIv,
+                tag: item.payloadTag,
+              },
+              vaultKey,
+              vaultId,
+            );
+          } catch {
+            // ignore
+          }
+        }
+
         return {
           resource: item,
           title: `Photo ${item.id.slice(0, 8)}`,
+          content: photoNote,
           isPhoto: true,
           thumbnailBase64,
         };

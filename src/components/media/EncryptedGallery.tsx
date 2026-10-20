@@ -144,6 +144,7 @@ export const EncryptedGallery: React.FC<EncryptedGalleryProps> = ({
         resource={selectedPhoto}
         vaultKey={vaultKey}
         onClose={() => setSelectedPhoto(null)}
+        onPhotoUpdated={onRefresh}
         onDelete={async (id) => {
           await onDeletePhoto(id);
           setSelectedPhoto(null);

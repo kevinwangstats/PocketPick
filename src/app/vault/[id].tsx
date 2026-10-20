@@ -1,14 +1,23 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, ScrollView, Pressable, Text, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { Button, Card, H1, Body, Label } from '@/components/ui';
 import { TicketCard, TicketEditorModal } from '@/components/tickets';
 import { EncryptedGallery } from '@/components/media';
+import { VaultMasterPromptModal } from '@/components/vault';
+import {
+  ShuffleDisplay,
+  WinnerCard,
+  WeightFilterModal,
+  ResourceTypeFilter,
+} from '@/components/picker';
 import { useSessionStore } from '@/stores/useSessionStore';
+import { usePicker } from '@/hooks/usePicker';
 import { getDatabase } from '@/db/client';
 import { resources, Resource } from '@/db/schema';
+import { getVault } from '@/services/vault/vaultService';
 import {
   createTicket,
   getDecryptedTickets,
@@ -17,33 +26,44 @@ import {
 } from '@/services/tickets/ticketService';
 import { deleteResource, deleteVault } from '@/services/resources/resourceManager';
 
-type ContentTab = 'tickets' | 'photos';
+type ContentTab = 'tickets' | 'photos' | 'pick';
 
 export default function VaultDetailScreen() {
   const router = useRouter();
   const { id: vaultId } = useLocalSearchParams<{ id: string }>();
   const activeVaultKey = useSessionStore((state) => state.activeVaultKey);
 
+  const [vaultName, setVaultName] = useState('VAULT');
   const [activeTab, setActiveTab] = useState<ContentTab>('tickets');
   const [ticketList, setTicketList] = useState<DecryptedTicket[]>([]);
   const [photoList, setPhotoList] = useState<Resource[]>([]);
+  const [allVaultResources, setAllVaultResources] = useState<Resource[]>([]);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
+  const [isMasterPromptModalOpen, setIsMasterPromptModalOpen] = useState(false);
+
+  // In-Vault Picker State
+  const [isWeighted, setIsWeighted] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<ResourceTypeFilter>('all');
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
 
   const loadContent = useCallback(async () => {
     if (!vaultId || !activeVaultKey) return;
 
     try {
+      const vaultRecord = await getVault(vaultId);
+      if (vaultRecord) {
+        setVaultName(vaultRecord.name);
+      }
+
       // Load decrypted tickets
       const decrypted = await getDecryptedTickets(vaultId, activeVaultKey);
       setTicketList(decrypted);
 
-      // Load photos
+      // Load raw resources for this vault
       const db = await getDatabase();
-      const photoRows = await db
-        .select()
-        .from(resources)
-        .where(and(eq(resources.vaultId, vaultId), eq(resources.type, 'photo')));
-      setPhotoList(photoRows);
+      const rows = await db.select().from(resources).where(eq(resources.vaultId, vaultId));
+      setAllVaultResources(rows);
+      setPhotoList(rows.filter((r) => r.type === 'photo'));
     } catch (err) {
       console.error('Failed to load vault content:', err);
     }
@@ -52,6 +72,31 @@ export default function VaultDetailScreen() {
   useEffect(() => {
     loadContent();
   }, [loadContent]);
+
+  // Scoped pool for in-vault CSPRNG picker
+  const activePool = useMemo(() => {
+    return allVaultResources.filter((item) => {
+      if (typeFilter === 'all') return true;
+      return item.type === typeFilter;
+    });
+  }, [allVaultResources, typeFilter]);
+
+  const {
+    state: pickerState,
+    winner,
+    currentDisplayItem,
+    error: pickerError,
+    startShuffle,
+    reset: resetPicker,
+  } = usePicker({
+    vaultId: vaultId ?? '',
+    vaultKey: activeVaultKey,
+    items: activePool,
+    isWeighted,
+    onPickLogged: () => {
+      // Pick recorded
+    },
+  });
 
   const handleCreateTicket = async (payload: TicketPayload) => {
     if (!vaultId || !activeVaultKey) return;
@@ -124,8 +169,27 @@ export default function VaultDetailScreen() {
 
   return (
     <View className="flex-1 bg-black px-4 pt-4">
+      {/* Vault Header with Master Prompt Settings */}
+      <View className="flex-row justify-between items-center mb-3">
+        <View className="flex-1 pr-2">
+          <Label className="text-zinc-500">ACTIVE VAULT</Label>
+          <Text
+            className="text-white font-mono font-bold text-base tracking-wider"
+            numberOfLines={1}
+          >
+            {vaultName.toUpperCase()}
+          </Text>
+        </View>
+        <Pressable
+          onPress={() => setIsMasterPromptModalOpen(true)}
+          className="px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 active:border-white"
+        >
+          <Text className="text-xs font-mono text-zinc-300 tracking-wider">[ MASTER PROMPT ]</Text>
+        </Pressable>
+      </View>
+
       {/* Segmented Monochrome Tabs */}
-      <View className="flex-row border border-zinc-800 mb-5">
+      <View className="flex-row border border-zinc-800 mb-4">
         <Pressable
           onPress={() => setActiveTab('tickets')}
           className={`flex-1 py-2.5 items-center ${
@@ -152,6 +216,18 @@ export default function VaultDetailScreen() {
             }`}
           >
             PHOTOS ({photoList.length})
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setActiveTab('pick')}
+          className={`flex-1 py-2.5 items-center ${activeTab === 'pick' ? 'bg-white' : 'bg-black'}`}
+        >
+          <Text
+            className={`font-mono text-xs uppercase tracking-wider ${
+              activeTab === 'pick' ? 'text-black font-bold' : 'text-zinc-400'
+            }`}
+          >
+            PICK
           </Text>
         </Pressable>
       </View>
@@ -203,13 +279,72 @@ export default function VaultDetailScreen() {
         />
       )}
 
+      {/* In-Vault Pick Tab */}
+      {activeTab === 'pick' && (
+        <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 20 }}>
+          {/* Controls bar */}
+          <View className="flex-row justify-between items-center mb-4">
+            <View>
+              <Label className="text-zinc-400 text-xs">
+                MODE: {isWeighted ? 'WEIGHTED' : 'UNIFORM'} • POOL: {typeFilter.toUpperCase()} (
+                {activePool.length})
+              </Label>
+            </View>
+            <Button
+              variant="secondary"
+              className="h-8 px-3"
+              onPress={() => setFilterModalVisible(true)}
+              disabled={pickerState === 'shuffling' || pickerState === 'decelerating'}
+            >
+              FILTER & WEIGHTS
+            </Button>
+          </View>
+
+          {/* Monospace Shuffle Display */}
+          <ShuffleDisplay
+            state={pickerState}
+            displayItem={currentDisplayItem}
+            totalPoolSize={activePool.length}
+          />
+
+          {pickerError && (
+            <Card className="border border-zinc-700 bg-zinc-900 p-3 mt-4">
+              <Body className="text-xs text-white font-mono">{pickerError}</Body>
+            </Card>
+          )}
+
+          {/* Decrypted Winner Card */}
+          {winner && (
+            <WinnerCard
+              winner={winner}
+              onRePick={() => startShuffle('re_pick')}
+              onConfirm={resetPicker}
+            />
+          )}
+
+          {/* Pick Trigger Button */}
+          {pickerState !== 'revealed' && (
+            <View className="mt-6">
+              <Button
+                variant="primary"
+                loading={pickerState === 'shuffling' || pickerState === 'decelerating'}
+                disabled={activePool.length === 0}
+                onPress={() => startShuffle('pick')}
+              >
+                {pickerState === 'idle' ? 'EXECUTE CSPRNG PICK' : 'SAMPLING POOL...'}
+              </Button>
+            </View>
+          )}
+        </ScrollView>
+      )}
+
       {/* Bottom Danger Action */}
-      <View className="py-3 border-t border-zinc-900 items-center">
+      <View className="py-2.5 border-t border-zinc-900 items-center">
         <Pressable
           onPress={handleDeleteVault}
-          className="px-4 py-2 border border-red-900/60 active:bg-red-950"
+          className="px-4 py-1.5 border border-red-900/60 active:bg-red-950"
         >
-          <Text className="text-xs font-mono text-red-500 uppercase tracking-widest">
+          <Text className="text-[11px] font-mono text-red-500 uppercase tracking-widest">
             [ DESTROY VAULT ]
           </Text>
         </Pressable>
@@ -219,6 +354,22 @@ export default function VaultDetailScreen() {
         visible={isTicketModalOpen}
         onClose={() => setIsTicketModalOpen(false)}
         onSubmit={handleCreateTicket}
+      />
+
+      <VaultMasterPromptModal
+        visible={isMasterPromptModalOpen}
+        vaultId={vaultId!}
+        vaultName={vaultName}
+        onClose={() => setIsMasterPromptModalOpen(false)}
+      />
+
+      <WeightFilterModal
+        visible={filterModalVisible}
+        onClose={() => setFilterModalVisible(false)}
+        isWeighted={isWeighted}
+        onToggleWeighted={setIsWeighted}
+        typeFilter={typeFilter}
+        onSelectTypeFilter={setTypeFilter}
       />
     </View>
   );
