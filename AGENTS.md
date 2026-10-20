@@ -39,6 +39,10 @@ PocketPick is an iOS-first, secure mobile application that enables isolated, pas
    - Never batch multiple distinct features, refactors, or plan tasks into a single monolithic commit.
    - Use conventional commit messages: `feat(...)`, `test(...)`, `fix(...)`, `docs(...)`, `refactor(...)`.
    - Ensure `npm test` and `npx tsc --noEmit` pass cleanly before committing each task.
+7. **Continuous User Stories & Feature Documentation (`USER_STORIES.md`):**
+   - Whenever the user makes a feature request or provides feedback, document it into a single living document (`USER_STORIES.md`) in a coherent, structured manner.
+   - **No Past State Accumulation:** Past or obsolete state must NOT be recorded in this document. If a new feature or user request replaces or alters old behavior, directly edit and update the specification for that behavior to reflect the current active product state.
+   - Maintain standard Agile user story structure: _As a... I want to... So that..._, accompanied by concrete _Acceptance Criteria_ and technical feature details.
 
 ---
 
