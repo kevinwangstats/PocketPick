@@ -1,8 +1,11 @@
+// React 19 act environment configuration
+(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+
 /* eslint-disable @typescript-eslint/no-require-imports */
 // Jest setup file
 import '@testing-library/react-native';
 
-// Suppress known non-critical React Native warnings in Jest output
+// Suppress known non-critical React Native warnings and React 19 act log in Jest output
 const originalWarn = console.warn;
 console.warn = (...args: unknown[]) => {
   if (
@@ -12,6 +15,14 @@ console.warn = (...args: unknown[]) => {
     return;
   }
   originalWarn(...args);
+};
+
+const originalError = console.error;
+console.error = (...args: unknown[]) => {
+  if (typeof args[0] === 'string' && args[0].includes('not configured to support act')) {
+    return;
+  }
+  originalError(...args);
 };
 
 jest.mock('expo-secure-store', () => {
@@ -113,3 +124,26 @@ jest.mock('@react-native-ml-kit/text-recognition', () => ({
     })),
   },
 }));
+
+jest.mock(
+  'lru-cache',
+  () => ({
+    LRUCache: class {
+      private map = new Map();
+      get(k: any) {
+        return this.map.get(k);
+      }
+      set(k: any, v: any) {
+        this.map.set(k, v);
+        return this;
+      }
+      delete(k: any) {
+        return this.map.delete(k);
+      }
+      clear() {
+        this.map.clear();
+      }
+    },
+  }),
+  { virtual: true },
+);

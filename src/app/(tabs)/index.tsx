@@ -30,9 +30,14 @@ export default function VaultsScreen() {
   }, [loadVaults]);
 
   const handleCreateVault = async (name: string, description: string, passphrase: string) => {
-    const newId = await createVault(name, description, passphrase);
-    await loadVaults();
-    router.push({ pathname: '/vault/[id]', params: { id: newId } });
+    try {
+      const newId = await createVault(name, description, passphrase);
+      await loadVaults();
+      setIsCreateModalOpen(false);
+      router.push({ pathname: '/vault/[id]', params: { id: newId } });
+    } catch (err) {
+      console.error('Failed to create vault:', err);
+    }
   };
 
   const handleSelectVault = (vault: Vault) => {

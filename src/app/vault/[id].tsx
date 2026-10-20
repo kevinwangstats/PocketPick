@@ -53,13 +53,21 @@ export default function VaultDetailScreen() {
 
   const handleCreateTicket = async (payload: TicketPayload) => {
     if (!vaultId || !activeVaultKey) return;
-    await createTicket(vaultId, payload, activeVaultKey);
-    await loadContent();
+    try {
+      await createTicket(vaultId, payload, activeVaultKey);
+      await loadContent();
+    } catch (err) {
+      console.error('Failed to create ticket:', err);
+    }
   };
 
   const handleDeleteResource = async (resourceId: string) => {
-    await deleteResource(resourceId);
-    await loadContent();
+    try {
+      await deleteResource(resourceId);
+      await loadContent();
+    } catch (err) {
+      console.error('Failed to delete resource:', err);
+    }
   };
 
   if (!activeVaultKey) {

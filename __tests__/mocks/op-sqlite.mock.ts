@@ -43,8 +43,21 @@ export class MockDB {
     };
   });
 
+  executeSync: ExecuteFn = jest.fn((sql: string, params?: unknown[]) => {
+    return this.execute(sql, params);
+  });
+
   executeAsync: ExecuteAsyncFn = jest.fn(async (sql: string, params?: unknown[]) => {
     return this.execute(sql, params);
+  });
+
+  executeRaw = jest.fn(async (_sql: string, _params?: unknown[]) => {
+    return {
+      rawRows: [],
+      columnNames: [],
+      rowsAffected: 0,
+      insertId: 0,
+    };
   });
 
   executeRawAsync = jest.fn(async (_sql: string, _params?: unknown[]) => {

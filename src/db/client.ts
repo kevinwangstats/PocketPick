@@ -24,6 +24,23 @@ export async function getDatabase(): Promise<DrizzleDb> {
     encryptionKey: encryptionKey,
   });
 
+  // CRITICAL: Drizzle ORM OPSQLitePreparedQuery expects client.executeRawAsync()
+  // to return a 2D rawRows array directly (any[][]). However, @op-engineering/op-sqlite native
+  // executeRaw returns an object: { rawRows: any[][], columnNames: string[], ... }.
+  // If not unwrapped, Drizzle rows.map() throws "TypeError: undefined is not a function",
+  // breaking all select queries (loading vaults and loading resources).
+  const rawClient = opsqliteDb as any;
+  const originalExecuteRawAsync = rawClient.executeRawAsync?.bind(rawClient);
+  if (originalExecuteRawAsync) {
+    rawClient.executeRawAsync = async (query: string, params?: any[]) => {
+      const result = await originalExecuteRawAsync(query, params);
+      if (result && Array.isArray(result.rawRows)) {
+        return result.rawRows;
+      }
+      return result;
+    };
+  }
+
   rawDbInstance = opsqliteDb;
   dbInstance = drizzle(opsqliteDb, { schema });
 
@@ -38,62 +55,121 @@ export async function getDatabase(): Promise<DrizzleDb> {
  */
 export async function initializeTables(db: DB): Promise<void> {
   // Enforce foreign key constraints
-  db.execute('PRAGMA foreign_keys = ON;');
+  if (db.executeSync) {
+    db.executeSync('PRAGMA foreign_keys = ON;');
 
-  db.execute(`
-    CREATE TABLE IF NOT EXISTS vaults (
-      id TEXT PRIMARY KEY NOT NULL,
-      name TEXT NOT NULL,
-      description TEXT,
-      salt TEXT NOT NULL,
-      verifier_cipher TEXT NOT NULL,
-      verifier_iv TEXT NOT NULL,
-      verifier_tag TEXT NOT NULL,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
-    );
-  `);
+    db.executeSync(`
+      CREATE TABLE IF NOT EXISTS vaults (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT,
+        salt TEXT NOT NULL,
+        verifier_cipher TEXT NOT NULL,
+        verifier_iv TEXT NOT NULL,
+        verifier_tag TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+    `);
 
-  db.execute(`
-    CREATE TABLE IF NOT EXISTS resources (
-      id TEXT PRIMARY KEY NOT NULL,
-      vault_id TEXT NOT NULL REFERENCES vaults(id) ON DELETE CASCADE,
-      type TEXT NOT NULL,
-      weight INTEGER NOT NULL DEFAULT 1,
-      encrypted_payload TEXT,
-      payload_iv TEXT,
-      payload_tag TEXT,
-      encrypted_file_path TEXT,
-      file_iv TEXT,
-      file_tag TEXT,
-      encrypted_thumbnail_path TEXT,
-      thumbnail_iv TEXT,
-      thumbnail_tag TEXT,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
-    );
-  `);
+    db.executeSync(`
+      CREATE TABLE IF NOT EXISTS resources (
+        id TEXT PRIMARY KEY NOT NULL,
+        vault_id TEXT NOT NULL REFERENCES vaults(id) ON DELETE CASCADE,
+        type TEXT NOT NULL,
+        weight INTEGER NOT NULL DEFAULT 1,
+        encrypted_payload TEXT,
+        payload_iv TEXT,
+        payload_tag TEXT,
+        encrypted_file_path TEXT,
+        file_iv TEXT,
+        file_tag TEXT,
+        encrypted_thumbnail_path TEXT,
+        thumbnail_iv TEXT,
+        thumbnail_tag TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+    `);
 
-  db.execute(`
-    CREATE TABLE IF NOT EXISTS history_logs (
-      id TEXT PRIMARY KEY NOT NULL,
-      vault_id TEXT NOT NULL REFERENCES vaults(id) ON DELETE CASCADE,
-      resource_id TEXT REFERENCES resources(id) ON DELETE SET NULL,
-      selected_at INTEGER NOT NULL,
-      action_type TEXT NOT NULL,
-      notes TEXT
-    );
-  `);
+    db.executeSync(`
+      CREATE TABLE IF NOT EXISTS history_logs (
+        id TEXT PRIMARY KEY NOT NULL,
+        vault_id TEXT NOT NULL REFERENCES vaults(id) ON DELETE CASCADE,
+        resource_id TEXT REFERENCES resources(id) ON DELETE SET NULL,
+        selected_at INTEGER NOT NULL,
+        action_type TEXT NOT NULL,
+        notes TEXT
+      );
+    `);
 
-  db.execute(`
-    CREATE TABLE IF NOT EXISTS api_quotas (
-      id TEXT PRIMARY KEY NOT NULL,
-      period_month TEXT NOT NULL,
-      request_count INTEGER NOT NULL DEFAULT 0,
-      max_monthly_limit INTEGER NOT NULL DEFAULT 100,
-      last_request_at INTEGER
-    );
-  `);
+    db.executeSync(`
+      CREATE TABLE IF NOT EXISTS api_quotas (
+        id TEXT PRIMARY KEY NOT NULL,
+        period_month TEXT NOT NULL,
+        request_count INTEGER NOT NULL DEFAULT 0,
+        max_monthly_limit INTEGER NOT NULL DEFAULT 100,
+        last_request_at INTEGER
+      );
+    `);
+  } else {
+    await db.execute('PRAGMA foreign_keys = ON;');
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS vaults (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT,
+        salt TEXT NOT NULL,
+        verifier_cipher TEXT NOT NULL,
+        verifier_iv TEXT NOT NULL,
+        verifier_tag TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+    `);
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS resources (
+        id TEXT PRIMARY KEY NOT NULL,
+        vault_id TEXT NOT NULL REFERENCES vaults(id) ON DELETE CASCADE,
+        type TEXT NOT NULL,
+        weight INTEGER NOT NULL DEFAULT 1,
+        encrypted_payload TEXT,
+        payload_iv TEXT,
+        payload_tag TEXT,
+        encrypted_file_path TEXT,
+        file_iv TEXT,
+        file_tag TEXT,
+        encrypted_thumbnail_path TEXT,
+        thumbnail_iv TEXT,
+        thumbnail_tag TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+    `);
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS history_logs (
+        id TEXT PRIMARY KEY NOT NULL,
+        vault_id TEXT NOT NULL REFERENCES vaults(id) ON DELETE CASCADE,
+        resource_id TEXT REFERENCES resources(id) ON DELETE SET NULL,
+        selected_at INTEGER NOT NULL,
+        action_type TEXT NOT NULL,
+        notes TEXT
+      );
+    `);
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS api_quotas (
+        id TEXT PRIMARY KEY NOT NULL,
+        period_month TEXT NOT NULL,
+        request_count INTEGER NOT NULL DEFAULT 0,
+        max_monthly_limit INTEGER NOT NULL DEFAULT 100,
+        last_request_at INTEGER
+      );
+    `);
+  }
 }
 
 /**
