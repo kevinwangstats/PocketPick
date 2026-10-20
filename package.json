@@ -58,6 +58,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
+    "audit": "./scripts/audit-crypto.sh",
+    "e2e": "maestro test .maestro/flows/",
     "prepare": "husky"
   },
   "lint-staged": {
