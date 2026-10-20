@@ -139,3 +139,19 @@
   - Outgoing LLM requests in `llmClient.ts` use the corresponding provider endpoints:
     - Gemini: `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`
     - DeepSeek: `https://api.deepseek.com/chat/completions` (OpenAI-compatible protocol with model `deepseek-v4-flash`).
+
+---
+
+## 5. System UI & Privacy Invariants
+
+### US-009: Clean App Launch & Dev Overlay Suppression
+
+- **User Request:** _"The Top Status Bar: 'Download 100%' should be removed, it will make users scared that we moved their secret data"_, and _"Both the status bars should be remove"_
+- **User Story:**
+  - _As a_ user launching PocketPick,
+  - _I want_ the app to open with a completely clean interface free of "Download 100%" or bottom popup status bars,
+  - _So that_ I am confident my secret, offline vault data is completely secure and not being transmitted or downloaded.
+- **Acceptance Criteria:**
+  - **Top Download Bar Disabled:** React Native's `RCTDevLoadingView` is disabled at native application launch in `AppDelegate.swift` via `RCTDevLoadingViewSetEnabled(false)`. The top "Downloading JavaScript bundle 100%" bar is completely prevented from displaying.
+  - **Bottom Status / LogBox Popup Disabled:** In `src/app/_layout.tsx`, `LogBox.ignoreAllLogs(true)` is activated, preventing blank or dev notification overlays from mounting at the bottom of the screen.
+  - **Production Invariant:** In production/release builds, dev banners and loading views remain completely stripped and absent.
