@@ -39,3 +39,51 @@ jest.mock('@op-engineering/op-sqlite', () => {
     MockDB,
   };
 });
+
+jest.mock('expo-file-system', () => {
+  const { mockFileSystem } = require('./mocks/file-system.mock');
+  return {
+    ...mockFileSystem,
+    default: mockFileSystem,
+  };
+});
+
+jest.mock('expo-file-system/legacy', () => {
+  const { mockFileSystem } = require('./mocks/file-system.mock');
+  return {
+    ...mockFileSystem,
+    default: mockFileSystem,
+  };
+});
+
+jest.mock('expo-image-manipulator', () => {
+  const { mockFileSystem } = require('./mocks/file-system.mock');
+  return {
+    SaveFormat: {
+      JPEG: 'jpeg',
+      PNG: 'png',
+    },
+    manipulateAsync: jest.fn(async (uri: string) => {
+      const outputUri = `${uri}_manipulated.jpg`;
+      mockFileSystem._storage.set(
+        outputUri,
+        Buffer.from('fake manipulated thumbnail bytes').toString('base64'),
+      );
+      return {
+        uri: outputUri,
+        width: 300,
+        height: 300,
+      };
+    }),
+  };
+});
+
+jest.mock('expo-image-picker', () => ({
+  MediaTypeOptions: {
+    Images: 'images',
+  },
+  launchImageLibraryAsync: jest.fn(async () => ({
+    canceled: false,
+    assets: [{ uri: '/mock/picked_image.jpg' }],
+  })),
+}));
