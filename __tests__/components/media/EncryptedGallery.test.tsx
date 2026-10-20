@@ -63,7 +63,7 @@ describe('EncryptedGallery Component', () => {
       expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalledWith(
         expect.objectContaining({
           allowsMultipleSelection: true,
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          mediaTypes: ['images'],
         }),
       );
       expect(imagePipeline.ingestImage).toHaveBeenCalledTimes(3);

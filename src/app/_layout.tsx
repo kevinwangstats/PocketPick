@@ -5,7 +5,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, LogBox } from 'react-native';
 
-LogBox.ignoreLogs(['ImageBackground is deprecated']);
+LogBox.ignoreLogs(['ImageBackground is deprecated', '[expo-image-picker]']);
 import { getDatabase } from '../db/client';
 import { useAutoLock } from '../hooks/useAutoLock';
 import { PrivacyShield } from '../components/security/PrivacyShield';
