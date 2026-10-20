@@ -34,6 +34,11 @@ PocketPick is an iOS-first, secure mobile application that enables isolated, pas
    - Refer to `.agents/rules/code-quality.md`.
    - Strict TypeScript: no unreviewed `any`, explicit return types on public services.
    - Pre-commit hooks (`husky`) run `lint-staged` with ESLint, Prettier, and `tsc --noEmit`.
+6. **Atomic Commit Discipline (One Commit per Completed Task):**
+   - Make a dedicated, descriptive git commit immediately upon finishing each individual task or checklist item.
+   - Never batch multiple distinct features, refactors, or plan tasks into a single monolithic commit.
+   - Use conventional commit messages: `feat(...)`, `test(...)`, `fix(...)`, `docs(...)`, `refactor(...)`.
+   - Ensure `npm test` and `npx tsc --noEmit` pass cleanly before committing each task.
 
 ---
 
