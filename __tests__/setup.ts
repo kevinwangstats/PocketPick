@@ -103,3 +103,13 @@ jest.mock('expo-haptics', () => ({
   notificationAsync: jest.fn(async () => {}),
   selectionAsync: jest.fn(async () => {}),
 }));
+
+jest.mock('@react-native-ml-kit/text-recognition', () => ({
+  __esModule: true,
+  default: {
+    recognize: jest.fn(async () => ({
+      text: 'Extracted OCR Mock Text 12345',
+      blocks: [],
+    })),
+  },
+}));

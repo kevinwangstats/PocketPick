@@ -4,6 +4,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Resource } from '../../db/schema';
 import { decryptBuffer } from '../../crypto/cipher';
 import { Label, ErrorText } from '../ui';
+import { processEphemeralOcr } from '../../services/ocr/ephemeralProcessor';
+import { LlmAnalysisModal } from '../llm';
 
 export interface FullImageModalProps {
   visible: boolean;
@@ -24,6 +26,39 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isOcrRunning, setIsOcrRunning] = useState(false);
+  const [ocrModalVisible, setOcrModalVisible] = useState(false);
+  const [extractedOcrText, setExtractedOcrText] = useState('');
+
+  const handleRunOcr = async () => {
+    if (
+      !resource ||
+      !vaultKey ||
+      !resource.encryptedFilePath ||
+      !resource.fileIv ||
+      !resource.fileTag
+    ) {
+      return;
+    }
+
+    setIsOcrRunning(true);
+    setError(null);
+    try {
+      const text = await processEphemeralOcr({
+        encryptedFilePath: resource.encryptedFilePath,
+        key: vaultKey,
+        iv: resource.fileIv,
+        tag: resource.fileTag,
+        vaultId: resource.vaultId,
+      });
+      setExtractedOcrText(text);
+      setOcrModalVisible(true);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'OCR failed');
+    } finally {
+      setIsOcrRunning(false);
+    }
+  };
 
   useEffect(() => {
     let isCancelled = false;
@@ -129,18 +164,38 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
             {resource?.id ? `ID: ${resource.id.substring(0, 8)}...` : ''}
           </Label>
 
-          {onDelete && resource && (
+          <View className="flex-row space-x-2 gap-2">
             <Pressable
-              onPress={handleDelete}
-              disabled={isDeleting}
-              className="px-4 py-2 bg-zinc-950 border border-red-800 active:bg-red-900"
+              onPress={handleRunOcr}
+              disabled={isOcrRunning || !resource}
+              className="px-3 py-2 bg-zinc-950 border border-white active:bg-zinc-800"
             >
-              <Text className="text-xs font-mono text-red-400 uppercase tracking-wider">
-                {isDeleting ? 'SHREDDING...' : 'SHRED PHOTO'}
+              <Text className="text-xs font-mono text-white uppercase tracking-wider">
+                {isOcrRunning ? 'EXTRACTING...' : 'OCR & LLM'}
               </Text>
             </Pressable>
-          )}
+
+            {onDelete && resource && (
+              <Pressable
+                onPress={handleDelete}
+                disabled={isDeleting}
+                className="px-3 py-2 bg-zinc-950 border border-red-800 active:bg-red-900"
+              >
+                <Text className="text-xs font-mono text-red-400 uppercase tracking-wider">
+                  {isDeleting ? 'SHREDDING...' : 'SHRED'}
+                </Text>
+              </Pressable>
+            )}
+          </View>
         </View>
+
+        <LlmAnalysisModal
+          visible={ocrModalVisible}
+          onClose={() => setOcrModalVisible(false)}
+          extractedText={extractedOcrText}
+          vaultId={resource?.vaultId ?? ''}
+          vaultKey={vaultKey}
+        />
       </View>
     </Modal>
   );
