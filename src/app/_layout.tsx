@@ -4,9 +4,12 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
 import { getDatabase } from '../db/client';
+import { useAutoLock } from '../hooks/useAutoLock';
+import { PrivacyShield } from '../components/security/PrivacyShield';
 
 export default function RootLayout() {
   const [isDbReady, setIsDbReady] = useState(false);
+  const { isShieldActive } = useAutoLock();
 
   useEffect(() => {
     async function init() {
@@ -33,6 +36,7 @@ export default function RootLayout() {
   return (
     <View className="flex-1 bg-black">
       <StatusBar style="light" />
+      <PrivacyShield visible={isShieldActive} />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: '#000000' },
