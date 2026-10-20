@@ -87,3 +87,19 @@ jest.mock('expo-image-picker', () => ({
     assets: [{ uri: '/mock/picked_image.jpg' }],
   })),
 }));
+
+jest.mock('expo-haptics', () => ({
+  ImpactFeedbackStyle: {
+    Light: 'light',
+    Medium: 'medium',
+    Heavy: 'heavy',
+  },
+  NotificationFeedbackType: {
+    Success: 'success',
+    Warning: 'warning',
+    Error: 'error',
+  },
+  impactAsync: jest.fn(async () => {}),
+  notificationAsync: jest.fn(async () => {}),
+  selectionAsync: jest.fn(async () => {}),
+}));

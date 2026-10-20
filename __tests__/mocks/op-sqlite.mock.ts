@@ -47,6 +47,10 @@ export class MockDB {
     return this.execute(sql, params);
   });
 
+  executeRawAsync = jest.fn(async (_sql: string, _params?: unknown[]) => {
+    return [];
+  });
+
   close = jest.fn(() => {
     this.isOpen = false;
   });
