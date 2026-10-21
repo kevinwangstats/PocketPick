@@ -20,7 +20,6 @@ import { Buffer } from '@craftzdog/react-native-buffer';
 import { Resource } from '../../db/schema';
 import { decryptBuffer } from '../../crypto/cipher';
 import { Label, ErrorText, Button } from '../ui';
-import { processEphemeralOcr } from '../../services/ocr/ephemeralProcessor';
 import { queryLlm } from '../../services/llm/llmClient';
 import { getVaultMasterPrompt } from '../../services/vault/vaultService';
 import { getPhotoText, savePhotoText } from '../../services/media/photoTextService';
@@ -55,10 +54,8 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [isTextDirty, setIsTextDirty] = useState(false);
 
-  // OCR modal state
-  const [isOcrRunning, setIsOcrRunning] = useState(false);
-  const [ocrModalVisible, setOcrModalVisible] = useState(false);
-  const [extractedOcrText, setExtractedOcrText] = useState('');
+  // AI Analysis modal state
+  const [isAiModalVisible, setIsAiModalVisible] = useState(false);
   const { theme } = useTheme();
 
   // Load photo & decrypted associated text
@@ -152,7 +149,7 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
     }
   };
 
-  // AI Suggestion: runs ephemeral OCR -> appends vault master prompt -> fills editable input
+  // AI Suggestion: decrypts photo in-memory -> sends to multimodal vision AI -> fills editable input
   const handleAiSuggest = async () => {
     if (
       !resource ||
@@ -167,21 +164,10 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
     setIsSuggesting(true);
     setError(null);
     try {
-      // 1. Run ephemeral OCR on image bytes
-      const resolvedFilePath =
-        resolveResourcePath(resource.encryptedFilePath) ?? resource.encryptedFilePath;
-      const ocrResult = await processEphemeralOcr({
-        encryptedFilePath: resolvedFilePath,
-        key: vaultKey,
-        iv: resource.fileIv,
-        tag: resource.fileTag,
-        vaultId: resource.vaultId,
-      });
-
-      // 2. Fetch the vault master prompt
+      // 1. Fetch the vault master prompt
       const masterPrompt = await getVaultMasterPrompt(resource.vaultId);
 
-      // 3. Obtain image base64 for multimodal vision models (e.g. Kimi kimi-k2.6, Gemini)
+      // 2. Obtain image base64 for multimodal vision models (e.g. Kimi kimi-k2.6, Gemini)
       let imageBase64ToSend = dataUri ?? undefined;
       if (
         !imageBase64ToSend &&
@@ -207,21 +193,47 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
         }
       }
 
-      // 4. Query LLM to synthesize a description/suggestion with visual context
-      const hasOcr = Boolean(ocrResult && ocrResult.trim().length > 0);
-      const prompt = hasOcr
-        ? 'Analyze this photo and its text content. Generate a concise title, description, and key tags:'
-        : 'Analyze this photo carefully. Generate a concise title, short description, and key tags describing what is shown in the image:';
+      // If full image is larger than 3MB, use thumbnail to avoid API payload limits
+      if (
+        imageBase64ToSend &&
+        imageBase64ToSend.length > 3 * 1024 * 1024 &&
+        resource.encryptedThumbnailPath &&
+        resource.thumbnailIv &&
+        resource.thumbnailTag
+      ) {
+        const resolvedThumb = resolveResourcePath(resource.encryptedThumbnailPath);
+        if (resolvedThumb) {
+          const cipherB64 = await FileSystem.readAsStringAsync(resolvedThumb, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          const decryptedBuf = decryptBuffer(
+            {
+              ciphertext: cipherB64,
+              iv: resource.thumbnailIv,
+              tag: resource.thumbnailTag,
+            },
+            vaultKey,
+            resource.vaultId,
+          );
+          imageBase64ToSend = `data:image/jpeg;base64,${decryptedBuf.toString('base64')}`;
+        }
+      }
+
+      if (!imageBase64ToSend) {
+        throw new Error('Image data is still loading. Please wait a moment and try again.');
+      }
+
+      // 3. Query LLM directly with the visual photo asset
+      const prompt =
+        'Analyze this photo carefully. Generate a concise title, short description, and key searchable tags for what is shown in the image:';
 
       const response = await queryLlm({
         userPrompt: prompt,
-        contextText: hasOcr ? `OCR Extracted Text:\n${ocrResult.trim()}` : undefined,
         imageBase64: imageBase64ToSend,
         masterPrompt,
       });
 
       if (response.content) {
-        // Place into editable text field so user can customize before saving
         setAssociatedText(response.content);
         setIsTextDirty(true);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -233,38 +245,6 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
       );
     } finally {
       setIsSuggesting(false);
-    }
-  };
-
-  const handleRunOcr = async () => {
-    if (
-      !resource ||
-      !vaultKey ||
-      !resource.encryptedFilePath ||
-      !resource.fileIv ||
-      !resource.fileTag
-    ) {
-      return;
-    }
-
-    setIsOcrRunning(true);
-    setError(null);
-    try {
-      const resolvedFilePath =
-        resolveResourcePath(resource.encryptedFilePath) ?? resource.encryptedFilePath;
-      const text = await processEphemeralOcr({
-        encryptedFilePath: resolvedFilePath,
-        key: vaultKey,
-        iv: resource.fileIv,
-        tag: resource.fileTag,
-        vaultId: resource.vaultId,
-      });
-      setExtractedOcrText(text);
-      setOcrModalVisible(true);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'OCR failed');
-    } finally {
-      setIsOcrRunning(false);
     }
   };
 
@@ -467,8 +447,8 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
 
           <View className="flex-row space-x-2 gap-2">
             <Pressable
-              onPress={handleRunOcr}
-              disabled={isOcrRunning || !resource}
+              onPress={() => setIsAiModalVisible(true)}
+              disabled={!resource}
               style={{
                 paddingHorizontal: 12,
                 paddingVertical: 8,
@@ -486,7 +466,7 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
                   fontWeight: '600',
                 }}
               >
-                {isOcrRunning ? 'EXTRACTING...' : theme.isUppercase ? 'FULL OCR' : 'Full OCR'}
+                {theme.isUppercase ? 'AI ANALYZE' : 'AI Analyze'}
               </Text>
             </Pressable>
 
@@ -519,9 +499,8 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
         </View>
 
         <LlmAnalysisModal
-          visible={ocrModalVisible}
-          onClose={() => setOcrModalVisible(false)}
-          extractedText={extractedOcrText}
+          visible={isAiModalVisible}
+          onClose={() => setIsAiModalVisible(false)}
           imageBase64={dataUri ?? undefined}
           vaultId={resource?.vaultId ?? ''}
           vaultKey={vaultKey}

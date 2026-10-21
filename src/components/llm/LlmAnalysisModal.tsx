@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
-import { View, Modal, ScrollView, Pressable, TextInput, Alert, Text } from 'react-native';
+import { View, Text, Modal, ScrollView, TextInput, Pressable, Alert, Image } from 'react-native';
 import { PROMPT_PRESETS } from '../../services/llm/promptTemplates';
 import { queryLlm } from '../../services/llm/llmClient';
 import { getVaultMasterPrompt } from '../../services/vault/vaultService';
 import { createTicket } from '../../services/tickets/ticketService';
-import { Card, H2, Label, Body, Mono, Button, ErrorText } from '../ui';
+import { Card, H2, Label, Body, Button, ErrorText } from '../ui';
 import { useTheme } from '../../theme';
 
 export interface LlmAnalysisModalProps {
   visible: boolean;
   onClose: () => void;
-  extractedText: string;
   imageBase64?: string;
   vaultId: string;
   vaultKey: Buffer | null;
@@ -20,7 +19,6 @@ export interface LlmAnalysisModalProps {
 export function LlmAnalysisModal({
   visible,
   onClose,
-  extractedText,
   imageBase64,
   vaultId,
   vaultKey,
@@ -44,7 +42,6 @@ export function LlmAnalysisModal({
       const masterPrompt = vaultId ? await getVaultMasterPrompt(vaultId) : undefined;
       const response = await queryLlm({
         userPrompt: promptToUse,
-        contextText: extractedText,
         imageBase64,
         masterPrompt,
       });
@@ -64,7 +61,7 @@ export function LlmAnalysisModal({
         .split('\n')[0]
         .replace(/^#+\s*/, '')
         .slice(0, 40);
-      const title = firstLine.trim() || 'LLM Analysis Result';
+      const title = firstLine.trim() || 'AI Photo Analysis Result';
 
       await createTicket(
         vaultId,
@@ -103,34 +100,60 @@ export function LlmAnalysisModal({
           <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
             <View className="flex-row justify-between items-center mb-4">
               <H2 className="text-base">
-                {theme.isUppercase ? 'ON-DEVICE OCR & LLM' : 'On-Device OCR & LLM'}
+                {theme.isUppercase ? 'AI PHOTO ANALYSIS' : 'AI Photo Analysis'}
               </H2>
               <Button variant="secondary" className="h-7 px-2" onPress={onClose}>
                 {theme.isUppercase ? 'CLOSE' : 'Close'}
               </Button>
             </View>
 
-            {/* Step 1: Extracted OCR inspection */}
-            <Label className="mb-2">RECOGNIZED TEXT (INSPECT / REDACT)</Label>
-            <View
-              style={{
-                backgroundColor: theme.colors.badgeBg,
-                borderColor: theme.colors.cardBorder,
-                borderWidth: 1,
-                borderRadius: theme.borderRadius ? 8 : 0,
-                padding: 12,
-                marginBottom: 16,
-                maxHeight: 140,
-              }}
-            >
-              <ScrollView>
-                <Mono style={{ color: theme.colors.textSecondary }} className="text-xs">
-                  {extractedText || '[NO TEXT DETECTED]'}
-                </Mono>
-              </ScrollView>
-            </View>
+            {/* Photo preview banner if available */}
+            {imageBase64 && (
+              <View
+                style={{
+                  backgroundColor: theme.colors.badgeBg,
+                  borderColor: theme.colors.cardBorder,
+                  borderWidth: 1,
+                  borderRadius: theme.borderRadius ? 8 : 0,
+                  padding: 8,
+                  marginBottom: 16,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 12,
+                }}
+              >
+                <Image
+                  source={{ uri: imageBase64 }}
+                  style={{ width: 44, height: 44, borderRadius: theme.borderRadius ? 4 : 0 }}
+                  resizeMode="cover"
+                />
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      color: theme.colors.textPrimary,
+                      fontFamily: theme.isMono ? 'Courier' : undefined,
+                      fontSize: 12,
+                      fontWeight: '600',
+                    }}
+                  >
+                    {theme.isUppercase ? 'DECRYPTED PHOTO ATTACHED' : 'Decrypted Photo Attached'}
+                  </Text>
+                  <Text
+                    style={{
+                      color: theme.colors.textMuted,
+                      fontFamily: theme.isMono ? 'Courier' : undefined,
+                      fontSize: 10,
+                    }}
+                  >
+                    {theme.isUppercase
+                      ? 'READY FOR MULTIMODAL VISION REASONING'
+                      : 'Ready for multimodal vision reasoning'}
+                  </Text>
+                </View>
+              </View>
+            )}
 
-            {/* Step 2: Presets */}
+            {/* Presets */}
             <Label className="mb-2">PROMPT PRESETS</Label>
             <View className="flex-row flex-wrap gap-2 mb-3">
               {PROMPT_PRESETS.map((preset) => {
@@ -190,11 +213,11 @@ export function LlmAnalysisModal({
             <Button
               variant="primary"
               loading={loading}
-              disabled={(!extractedText && !imageBase64) || loading}
+              disabled={(!imageBase64 && !customPrompt) || loading}
               onPress={handleExecute}
               className="mb-4"
             >
-              {theme.isUppercase ? 'RUN LLM QUERY' : 'Run LLM Query'}
+              {theme.isUppercase ? 'RUN AI ANALYSIS' : 'Run AI Analysis'}
             </Button>
 
             {/* LLM Result */}
@@ -207,7 +230,7 @@ export function LlmAnalysisModal({
                   marginTop: 16,
                 }}
               >
-                <Label className="mb-2">LLM RESPONSE</Label>
+                <Label className="mb-2">AI RESPONSE</Label>
                 <View
                   style={{
                     backgroundColor: theme.colors.badgeBg,
