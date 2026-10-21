@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Alert } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSessionStore } from '../../stores/useSessionStore';
 import {
   getHistoryLogs,
@@ -7,12 +8,13 @@ import {
   HistoryLogWithResource,
 } from '../../services/history/historyService';
 import { HistoryTimeline } from '../../components/history';
-import { H1, Label, Card, Body } from '../../components/ui';
+import { H1, Label, Card, Body, Button } from '../../components/ui';
 import { useTheme } from '../../theme';
 
 export default function HistoryScreen() {
   const { activeVaultId, activeVaultKey } = useSessionStore();
   const { theme } = useTheme();
+  const router = useRouter();
   const [logs, setLogs] = useState<HistoryLogWithResource[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -67,9 +69,16 @@ export default function HistoryScreen() {
           <Body style={{ color: theme.colors.textMuted }} className="text-center mb-6">
             Unlock a vault to decrypt and view item details in your audit history.
           </Body>
+          <Button
+            variant="primary"
+            onPress={() => router.push('/(tabs)')}
+            className="w-full max-w-xs mb-4"
+          >
+            {theme.isUppercase ? 'GO TO VAULTS' : 'Go to Vaults'}
+          </Button>
           <View
             style={{ borderColor: theme.colors.cardBorder }}
-            className="h-14 w-full border border-dashed items-center justify-center"
+            className="h-12 w-full border border-dashed items-center justify-center"
           >
             <Label>[ ENCRYPTED AUDIT TRAIL ]</Label>
           </View>

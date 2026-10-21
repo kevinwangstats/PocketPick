@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, ScrollView, RefreshControl } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSessionStore } from '../../stores/useSessionStore';
 import { getDatabase } from '../../db/client';
 import { resources, Resource } from '../../db/schema';
@@ -17,6 +18,7 @@ import { useTheme } from '../../theme';
 export default function RandomizerScreen() {
   const { activeVaultId, activeVaultKey } = useSessionStore();
   const { theme } = useTheme();
+  const router = useRouter();
   const [items, setItems] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(false);
   const [typeFilter, setTypeFilter] = useState<ResourceTypeFilter>('all');
@@ -78,9 +80,16 @@ export default function RandomizerScreen() {
           <Body style={{ color: theme.colors.textMuted }} className="text-center mb-6">
             Unlock a vault from the Vaults tab to enable secure, cryptographically fair selection.
           </Body>
+          <Button
+            variant="primary"
+            onPress={() => router.push('/(tabs)')}
+            className="w-full max-w-xs mb-4"
+          >
+            {theme.isUppercase ? 'GO TO VAULTS' : 'Go to Vaults'}
+          </Button>
           <View
             style={{ borderColor: theme.colors.cardBorder }}
-            className="h-14 w-full border border-dashed items-center justify-center"
+            className="h-12 w-full border border-dashed items-center justify-center"
           >
             <Label>[ ENCRYPTED STATE ACTIVE ]</Label>
           </View>

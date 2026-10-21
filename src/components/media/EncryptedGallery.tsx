@@ -26,6 +26,9 @@ export const EncryptedGallery: React.FC<EncryptedGalleryProps> = ({
 }) => {
   const [selectedPhoto, setSelectedPhoto] = useState<Resource | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(
+    null,
+  );
 
   const screenWidth = Dimensions.get('window').width;
   const numColumns = 3;
@@ -51,7 +54,10 @@ export const EncryptedGallery: React.FC<EncryptedGalleryProps> = ({
     const batchSeenKeys = new Set<string>();
 
     try {
-      for (const asset of result.assets) {
+      const totalAssets = result.assets.length;
+      for (let i = 0; i < totalAssets; i++) {
+        const asset = result.assets[i];
+        setImportProgress({ current: i + 1, total: totalAssets });
         if (!asset.uri) continue;
 
         // In-batch deduplication: avoid processing the exact same picker item twice
@@ -95,6 +101,7 @@ export const EncryptedGallery: React.FC<EncryptedGalleryProps> = ({
       Alert.alert('Import Failed', 'An error occurred while importing photos.');
     } finally {
       setIsImporting(false);
+      setImportProgress(null);
     }
   };
 
@@ -108,7 +115,11 @@ export const EncryptedGallery: React.FC<EncryptedGalleryProps> = ({
           onPress={handlePickAndImport}
           className="h-9 px-3"
         >
-          {isImporting ? 'IMPORTING...' : '+ IMPORT PHOTOS'}
+          {importProgress
+            ? `IMPORTING (${importProgress.current}/${importProgress.total})...`
+            : isImporting
+              ? 'IMPORTING...'
+              : '+ IMPORT PHOTOS'}
         </Button>
       </View>
 

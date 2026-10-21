@@ -8,7 +8,8 @@ import { Button, Card, H1, Body, Label } from '@/components/ui';
 import { useTheme } from '@/theme';
 import { TicketCard, TicketEditorModal } from '@/components/tickets';
 import { EncryptedGallery } from '@/components/media';
-import { VaultMasterPromptModal } from '@/components/vault';
+import { VaultMasterPromptModal, UnlockVaultModal } from '@/components/vault';
+import { useVaultAuth } from '@/hooks/useVaultAuth';
 import {
   ShuffleDisplay,
   WinnerCard,
@@ -43,6 +44,8 @@ export default function VaultDetailScreen() {
   const [allVaultResources, setAllVaultResources] = useState<Resource[]>([]);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
   const [isMasterPromptModalOpen, setIsMasterPromptModalOpen] = useState(false);
+  const [isUnlockModalOpen, setIsUnlockModalOpen] = useState(false);
+  const { unlockVault } = useVaultAuth();
 
   // In-Vault Picker State
   const [typeFilter, setTypeFilter] = useState<ResourceTypeFilter>('all');
@@ -173,10 +176,35 @@ export default function VaultDetailScreen() {
         className="flex-1 items-center justify-center px-6"
       >
         <Label className="mb-2 text-zinc-600">[ ACCESS DENIED ]</Label>
-        <H1 className="mb-4 text-center">VAULT IS LOCKED</H1>
+        <H1 className="mb-4 text-center">
+          {theme.isUppercase ? 'VAULT IS LOCKED' : 'Vault is Locked'}
+        </H1>
         <Body className="text-zinc-500 text-center mb-6">
           Authenticate with your master passphrase to decrypt and inspect items.
         </Body>
+        <View className="flex-row gap-3 w-full max-w-xs">
+          <Button variant="secondary" className="flex-1" onPress={() => router.replace('/(tabs)')}>
+            {theme.isUppercase ? 'ALL VAULTS' : 'All Vaults'}
+          </Button>
+          <Button variant="primary" className="flex-1" onPress={() => setIsUnlockModalOpen(true)}>
+            {theme.isUppercase ? 'UNLOCK' : 'Unlock'}
+          </Button>
+        </View>
+
+        <UnlockVaultModal
+          visible={isUnlockModalOpen}
+          vaultName={vaultName}
+          onClose={() => setIsUnlockModalOpen(false)}
+          onUnlock={async (passphrase) => {
+            if (!vaultId) return false;
+            const success = await unlockVault(vaultId, passphrase);
+            if (success) {
+              setIsUnlockModalOpen(false);
+              await loadContent();
+            }
+            return success;
+          }}
+        />
       </View>
     );
   }

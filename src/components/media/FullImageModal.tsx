@@ -303,7 +303,11 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
           </Pressable>
         </View>
 
-        <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 24 }}>
+        <ScrollView
+          className="flex-1"
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 24 }}
+        >
           {/* Photo Display */}
           <View
             style={{
@@ -335,7 +339,10 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
             ) : dataUri ? (
               <Image
                 source={{ uri: dataUri }}
-                style={{ width: screenWidth - 48, height: 260 }}
+                style={{
+                  width: screenWidth - 48,
+                  height: Math.min(340, Math.floor(Dimensions.get('window').height * 0.38)),
+                }}
                 resizeMode="contain"
               />
             ) : null}

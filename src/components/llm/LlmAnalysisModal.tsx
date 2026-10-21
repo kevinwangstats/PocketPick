@@ -47,7 +47,12 @@ export function LlmAnalysisModal({
       });
       setLlmOutput(response.content);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'LLM Query failed');
+      const rawMessage = err instanceof Error ? err.message : 'LLM Query failed';
+      if (rawMessage.toLowerCase().includes('no api key found')) {
+        setError(`${rawMessage}. Go to Settings > LLM Configuration to save your API key.`);
+      } else {
+        setError(rawMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -97,7 +102,10 @@ export function LlmAnalysisModal({
         }}
       >
         <Card className="w-full max-h-[85%] p-5">
-          <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 20 }}
+          >
             <View className="flex-row justify-between items-center mb-4">
               <H2 className="text-base">
                 {theme.isUppercase ? 'AI PHOTO ANALYSIS' : 'AI Photo Analysis'}

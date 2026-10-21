@@ -32,6 +32,15 @@ export const TicketEditorModal: React.FC<TicketEditorModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  React.useEffect(() => {
+    if (visible) {
+      setTitle(initialData?.title ?? '');
+      setContent(initialData?.content ?? '');
+      setWeight(String(initialData?.weight ?? 1));
+      setError(null);
+    }
+  }, [visible, initialData]);
+
   const handleSubmit = async () => {
     setError(null);
     if (!title.trim()) {
