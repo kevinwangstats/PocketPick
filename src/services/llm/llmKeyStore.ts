@@ -33,7 +33,12 @@ export async function getLlmApiKey(provider?: LlmProvider): Promise<string | nul
     const legacyKey = await SecureStore.getItemAsync(LEGACY_API_KEY_STORAGE_KEY, {
       keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
     });
-    return legacyKey;
+    if (legacyKey) return legacyKey;
+  }
+
+  // Fallback to bundled environment variables (e.g. MOONSHOT_API_KEY passed from Mac host during dev)
+  if (targetProvider === 'kimi' && process.env.EXPO_PUBLIC_MOONSHOT_API_KEY) {
+    return process.env.EXPO_PUBLIC_MOONSHOT_API_KEY;
   }
 
   return null;
