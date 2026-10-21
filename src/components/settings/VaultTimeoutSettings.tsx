@@ -1,68 +1,80 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable, Alert } from 'react-native';
+import { View, Text, Pressable, TextInput, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Card, H2, Label, Body, Mono, Input, Button } from '../ui';
+import { Card, H2, Label, Body, Mono } from '../ui';
 import { useVaultTimeoutStore } from '../../stores/useVaultTimeoutStore';
 import { useTheme } from '../../theme';
 
-const TIMEOUT_PRESETS = [
+const PRESET_BUTTONS = [
+  { label: '0m', minutes: 0 },
   { label: '1m', minutes: 1 },
   { label: '5m', minutes: 5 },
-  { label: '15m', minutes: 15 },
-  { label: '30m', minutes: 30 },
-  { label: '60m', minutes: 60 },
 ];
 
 export const VaultTimeoutSettings: React.FC = () => {
   const { theme } = useTheme();
   const { timeoutMinutes, setTimeoutMinutes } = useVaultTimeoutStore();
   const [customInput, setCustomInput] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
+
+  const isCustomSelected = timeoutMinutes > 0 && timeoutMinutes !== 1 && timeoutMinutes !== 5;
 
   useEffect(() => {
-    setCustomInput(timeoutMinutes.toString());
-  }, [timeoutMinutes]);
+    if (isCustomSelected) {
+      setCustomInput(timeoutMinutes.toString());
+    } else {
+      setCustomInput('');
+    }
+  }, [timeoutMinutes, isCustomSelected]);
 
   const handleSelectPreset = async (mins: number) => {
     Haptics.selectionAsync().catch(() => {});
     try {
       await setTimeoutMinutes(mins);
-      setCustomInput(mins.toString());
+      setCustomInput('');
     } catch (err) {
       console.error('Failed to set timeout preset:', err);
     }
   };
 
   const handleSaveCustom = async () => {
-    const parsed = parseInt(customInput.trim(), 10);
-    if (isNaN(parsed) || parsed < 0) {
-      Alert.alert('Invalid Timeout', 'Please enter a valid non-negative integer for minutes.');
+    const trimmed = customInput.trim();
+    if (!trimmed) return;
+    const parsed = parseInt(trimmed, 10);
+    if (isNaN(parsed) || parsed <= 0) {
+      Alert.alert(
+        theme.isUppercase ? 'INVALID TIMEOUT' : 'Invalid Timeout',
+        'Please enter a positive integer for minutes (e.g. 10). To always require password, tap 0m.',
+      );
       return;
     }
 
-    setIsSaving(true);
     try {
       await setTimeoutMinutes(parsed);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      Alert.alert('Saved', `Vault auto-lock timeout set to ${parsed} minute(s).`);
+      Alert.alert(
+        theme.isUppercase ? 'SAVED' : 'Saved',
+        `Vault auto-lock timeout set to ${parsed} minute(s).`,
+      );
     } catch (err) {
       Alert.alert('Error', err instanceof Error ? err.message : 'Failed to save timeout');
-    } finally {
-      setIsSaving(false);
     }
   };
 
   return (
     <Card className="p-5 mb-6">
-      <H2 className="mb-1">VAULT AUTO-LOCK TIMEOUT</H2>
+      <H2 className="mb-1">
+        {theme.isUppercase ? 'VAULT AUTO-LOCK TIMEOUT' : 'Vault Auto-Lock Timeout'}
+      </H2>
       <Body className="text-xs mb-4">
-        Configure how many minutes a vault stays unlocked after entering your passphrase before
-        encryption keys are automatically zeroized.
+        Configure how long a vault stays open before requiring your password again. 0m always
+        requires the password on access.
       </Body>
 
-      <Label className="mb-2">QUICK PRESETS</Label>
-      <View className="flex-row gap-2 mb-4">
-        {TIMEOUT_PRESETS.map((preset) => {
+      <Label className="mb-2">{theme.isUppercase ? 'TIMEOUT OPTIONS' : 'Timeout Options'}</Label>
+
+      {/* Single-line Row containing 0m, 1m, 5m, and customized positive integer input */}
+      <View className="flex-row items-center gap-1.5">
+        {PRESET_BUTTONS.map((preset) => {
           const isSelected = timeoutMinutes === preset.minutes;
 
           return (
@@ -70,15 +82,19 @@ export const VaultTimeoutSettings: React.FC = () => {
               key={preset.minutes}
               onPress={() => handleSelectPreset(preset.minutes)}
               accessibilityRole="button"
+              accessibilityLabel={`${preset.label} timeout`}
               accessibilityState={{ selected: isSelected }}
               style={{
-                borderRadius: theme.borderRadius ? 10 : 0,
+                borderRadius: theme.borderRadius ? 8 : 0,
                 borderWidth: isSelected ? 2 : 1,
                 borderColor: isSelected ? theme.colors.accent : theme.colors.cardBorder,
                 backgroundColor: isSelected ? theme.colors.badgeBg : theme.colors.card,
-                paddingVertical: 10,
+                paddingVertical: 9,
+                paddingHorizontal: 12,
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
-              className="flex-1 items-center active:opacity-85"
+              className="active:opacity-85"
             >
               <Text
                 style={{
@@ -86,7 +102,7 @@ export const VaultTimeoutSettings: React.FC = () => {
                   fontWeight: isSelected ? '700' : '600',
                   fontSize: 13,
                   fontFamily: theme.isMono ? 'Courier' : undefined,
-                  letterSpacing: theme.isUppercase ? 1 : 0.2,
+                  letterSpacing: theme.isUppercase ? 0.8 : 0.2,
                 }}
               >
                 {preset.label}
@@ -94,8 +110,75 @@ export const VaultTimeoutSettings: React.FC = () => {
             </Pressable>
           );
         })}
+
+        {/* Customized Positive Integer Input Container in the same line */}
+        <View
+          style={{
+            flex: 1,
+            flexDirection: 'row',
+            alignItems: 'center',
+            borderRadius: theme.borderRadius ? 8 : 0,
+            borderWidth: isCustomSelected ? 2 : 1,
+            borderColor: isCustomSelected ? theme.colors.accent : theme.colors.cardBorder,
+            backgroundColor: isCustomSelected ? theme.colors.badgeBg : theme.colors.inputBg,
+            paddingHorizontal: 10,
+            height: 38,
+          }}
+        >
+          <TextInput
+            value={customInput}
+            onChangeText={(val) => {
+              const sanitized = val.replace(/[^0-9]/g, '');
+              setCustomInput(sanitized);
+            }}
+            onSubmitEditing={handleSaveCustom}
+            placeholder={
+              isCustomSelected
+                ? `${timeoutMinutes}m`
+                : theme.isUppercase
+                  ? 'CUSTOM (MIN)'
+                  : 'Custom (min)'
+            }
+            placeholderTextColor={isCustomSelected ? theme.colors.accent : theme.colors.textMuted}
+            keyboardType="number-pad"
+            returnKeyType="done"
+            style={{
+              flex: 1,
+              color: isCustomSelected ? theme.colors.accent : theme.colors.textPrimary,
+              fontSize: 13,
+              fontFamily: theme.isMono ? 'Courier' : undefined,
+              fontWeight: isCustomSelected ? '700' : '500',
+              paddingVertical: 0,
+            }}
+          />
+          {customInput.length > 0 && (
+            <Pressable
+              onPress={handleSaveCustom}
+              hitSlop={6}
+              style={{
+                backgroundColor: theme.colors.accent,
+                paddingHorizontal: 7,
+                paddingVertical: 3,
+                borderRadius: theme.borderRadius ? 4 : 0,
+                marginLeft: 4,
+              }}
+            >
+              <Text
+                style={{
+                  color: theme.colors.accentText,
+                  fontSize: 10,
+                  fontWeight: '700',
+                  fontFamily: theme.isMono ? 'Courier' : undefined,
+                }}
+              >
+                {theme.isUppercase ? 'SET' : 'Set'}
+              </Text>
+            </Pressable>
+          )}
+        </View>
       </View>
 
+      {/* Active Timeout Status Indicator */}
       <View
         style={{
           backgroundColor: theme.isDark ? '#000000' : theme.colors.background,
@@ -104,35 +187,18 @@ export const VaultTimeoutSettings: React.FC = () => {
           borderRadius: theme.borderRadius ? 8 : 0,
           padding: 12,
         }}
-        className="mb-4 flex-row justify-between items-center"
+        className="mt-4 flex-row justify-between items-center"
       >
-        <Label className="text-[11px]">ACTIVE TIMEOUT</Label>
+        <Label className="text-[11px]">
+          {theme.isUppercase ? 'ACTIVE STATUS' : 'Active Status'}
+        </Label>
         <Mono className="text-xs font-bold">
           {timeoutMinutes === 0
-            ? 'IMMEDIATE ON BACKGROUND'
-            : `${timeoutMinutes} MINUTE${timeoutMinutes === 1 ? '' : 'S'}`}
+            ? theme.isUppercase
+              ? '0M (ALWAYS REQUIRES PASSWORD)'
+              : '0m (Always requires password)'
+            : `${timeoutMinutes} ${timeoutMinutes === 1 ? 'MINUTE' : 'MINUTES'}`}
         </Mono>
-      </View>
-
-      <Label className="mb-2">CUSTOM DURATION (MINUTES)</Label>
-      <View className="flex-row items-center gap-2">
-        <View className="flex-1">
-          <Input
-            value={customInput}
-            onChangeText={setCustomInput}
-            placeholder="e.g. 10"
-            keyboardType="number-pad"
-            returnKeyType="done"
-          />
-        </View>
-        <Button
-          variant="secondary"
-          className="h-12 px-4"
-          loading={isSaving}
-          onPress={handleSaveCustom}
-        >
-          SET
-        </Button>
       </View>
     </Card>
   );

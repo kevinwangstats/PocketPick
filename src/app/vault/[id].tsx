@@ -1,3 +1,4 @@
+import { useVaultTimeoutStore } from '@/stores/useVaultTimeoutStore';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, ScrollView, Pressable, Text, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -73,6 +74,16 @@ export default function VaultDetailScreen() {
   useEffect(() => {
     loadContent();
   }, [loadContent]);
+
+  // When timeout is 0m, leaving the vault automatically locks it to always require the password
+  useEffect(() => {
+    return () => {
+      const timeout = useVaultTimeoutStore.getState().timeoutMinutes;
+      if (timeout === 0) {
+        useSessionStore.getState().lockVault();
+      }
+    };
+  }, []);
 
   // Scoped pool for in-vault CSPRNG picker
   const activePool = useMemo(() => {

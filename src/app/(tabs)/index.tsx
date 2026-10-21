@@ -1,3 +1,4 @@
+import { useVaultTimeoutStore } from '@/stores/useVaultTimeoutStore';
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -41,7 +42,9 @@ export default function VaultsScreen() {
   };
 
   const handleSelectVault = (vault: Vault) => {
-    if (activeVaultId === vault.id && isUnlocked) {
+    const storeTimeout = useVaultTimeoutStore.getState().timeoutMinutes;
+    // 0m always requires the password on access
+    if (storeTimeout > 0 && activeVaultId === vault.id && isUnlocked) {
       router.push({ pathname: '/vault/[id]', params: { id: vault.id } });
     } else {
       setTargetUnlockVault(vault);
