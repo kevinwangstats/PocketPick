@@ -47,7 +47,7 @@ describe('LLM Client (Gemini, DeepSeek, & Kimi with Quota Guard)', () => {
 
     expect(quotaSpy).toHaveBeenCalledTimes(1);
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://api.moonshot.cn/v1/chat/completions',
+      'https://api.moonshot.ai/v1/chat/completions',
       expect.objectContaining({
         method: 'POST',
         headers: {
@@ -61,6 +61,45 @@ describe('LLM Client (Gemini, DeepSeek, & Kimi with Quota Guard)', () => {
     expect(response.provider).toBe('kimi');
     expect(response.model).toBe('kimi-k2.6');
     expect(response.quotaUsed).toBe(15);
+  });
+
+  it('falls back to api.moonshot.cn if api.moonshot.ai returns 401', async () => {
+    jest.spyOn(llmKeyStore, 'getLlmProvider').mockResolvedValueOnce('kimi');
+    jest.spyOn(llmKeyStore, 'getLlmApiKey').mockResolvedValueOnce('sk-cn-token');
+    jest.spyOn(quotaManager, 'incrementAndEnforceQuota').mockResolvedValueOnce(16);
+
+    const mockFetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        text: async () => JSON.stringify({ error: { message: 'Invalid Authentication' } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'Fallback CN Output' } }],
+        }),
+      });
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    const response = await queryLlm({
+      userPrompt: 'Test CN Fallback',
+      contextText: 'Context',
+    });
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      1,
+      'https://api.moonshot.ai/v1/chat/completions',
+      expect.anything(),
+    );
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      'https://api.moonshot.cn/v1/chat/completions',
+      expect.anything(),
+    );
+    expect(response.content).toBe('Fallback CN Output');
   });
 
   it('enforces monthly quota and queries DeepSeek with deepseek-v4-flash', async () => {

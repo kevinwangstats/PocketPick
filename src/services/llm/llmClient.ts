@@ -58,30 +58,62 @@ ${request.masterPrompt.trim()}`;
     let resultText = '';
 
     if (provider === 'kimi') {
-      const res = await fetch('https://api.moonshot.cn/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: modelToUse,
-          messages: [
-            ...(request.systemPrompt ? [{ role: 'system', content: request.systemPrompt }] : []),
-            { role: 'user', content: fullPrompt },
-          ],
-          temperature: 0.2,
-        }),
-        signal: controller.signal,
-      });
+      // Moonshot operates dual endpoints: api.moonshot.ai (global/open platform) and api.moonshot.cn (domestic CN).
+      // Query api.moonshot.ai first, falling back to api.moonshot.cn if 401 authentication failure occurs.
+      const endpoints = [
+        'https://api.moonshot.ai/v1/chat/completions',
+        'https://api.moonshot.cn/v1/chat/completions',
+      ];
 
-      if (!res.ok) {
-        const errorBody = await res.text();
-        throw new Error(`Kimi API error (${res.status}): ${errorBody}`);
+      let lastError: Error | null = null;
+      let succeeded = false;
+
+      for (const endpoint of endpoints) {
+        try {
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: modelToUse,
+              messages: [
+                ...(request.systemPrompt
+                  ? [{ role: 'system', content: request.systemPrompt }]
+                  : []),
+                { role: 'user', content: fullPrompt },
+              ],
+              temperature: 0.2,
+            }),
+            signal: controller.signal,
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            resultText = data.choices?.[0]?.message?.content ?? '';
+            succeeded = true;
+            break;
+          }
+
+          const errorBody = await res.text();
+          lastError = new Error(`Kimi API error (${res.status}): ${errorBody}`);
+
+          // If error is not 401 authentication, or this is the last endpoint, fail fast
+          if (res.status !== 401) {
+            throw lastError;
+          }
+        } catch (err) {
+          lastError = err as Error;
+          if (controller.signal.aborted) {
+            throw err;
+          }
+        }
       }
 
-      const data = await res.json();
-      resultText = data.choices?.[0]?.message?.content ?? '';
+      if (!succeeded) {
+        throw lastError ?? new Error('Kimi API request failed on all Moonshot endpoints');
+      }
     } else if (provider === 'deepseek') {
       const res = await fetch('https://api.deepseek.com/chat/completions', {
         method: 'POST',
