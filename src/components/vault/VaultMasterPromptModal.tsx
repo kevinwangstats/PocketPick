@@ -3,6 +3,7 @@ import { View, Modal, ScrollView, TextInput, Pressable, Text, Alert } from 'reac
 import * as Haptics from 'expo-haptics';
 import { Card, H2, Label, Body, Button } from '../ui';
 import { getVaultMasterPrompt, updateVaultMasterPrompt } from '../../services/vault/vaultService';
+import { useTheme } from '../../theme';
 
 export interface VaultMasterPromptModalProps {
   visible: boolean;
@@ -42,6 +43,7 @@ export const VaultMasterPromptModal: React.FC<VaultMasterPromptModalProps> = ({
   onClose,
   onSaved,
 }) => {
+  const { theme } = useTheme();
   const [promptText, setPromptText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -82,50 +84,103 @@ export const VaultMasterPromptModal: React.FC<VaultMasterPromptModalProps> = ({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/90 justify-center items-center p-4">
-        <Card className="w-full max-h-[85%] border-2 border-white p-5 bg-black">
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: theme.isDark ? 'rgba(0,0,0,0.85)' : 'rgba(0,0,0,0.45)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 16,
+        }}
+      >
+        <Card className="w-full max-h-[85%] p-5">
           <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
             <View className="flex-row justify-between items-center mb-4">
-              <View>
-                <Label className="text-zinc-500">VAULT CONFIGURATION</Label>
-                <H2 className="text-white text-base">LLM MASTER PROMPT</H2>
+              <View className="flex-1 pr-2">
+                <Label>VAULT CONFIGURATION</Label>
+                <H2 className="text-base">
+                  {theme.isUppercase ? 'LLM MASTER PROMPT' : 'LLM Master Prompt'}
+                </H2>
               </View>
               <Pressable
                 onPress={onClose}
-                className="px-2.5 py-1 bg-zinc-900 border border-zinc-700 active:bg-zinc-800"
+                style={{
+                  backgroundColor: theme.colors.badgeBg,
+                  borderColor: theme.colors.cardBorder,
+                  borderWidth: 1,
+                  borderRadius: theme.borderRadius ? 6 : 0,
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                }}
               >
-                <Text className="text-white font-mono text-xs uppercase">CLOSE</Text>
+                <Text
+                  style={{
+                    color: theme.colors.accent,
+                    fontFamily: theme.isMono ? 'Courier' : undefined,
+                    fontWeight: '600',
+                    fontSize: 12,
+                  }}
+                >
+                  {theme.isUppercase ? 'CLOSE' : 'Close'}
+                </Text>
               </Pressable>
             </View>
 
-            <Body className="text-zinc-400 text-xs mb-3">
+            <Body style={{ color: theme.colors.textSecondary }} className="text-xs mb-3">
               This master prompt is automatically appended whenever an LLM prompt or photo text
               suggestion is made inside &quot;{vaultName}&quot;.
             </Body>
 
-            <Label className="text-zinc-400 mb-2">PROMPT PRESETS</Label>
+            <Label className="mb-2">PROMPT PRESETS</Label>
             <View className="flex-row flex-wrap gap-2 mb-4">
               {MASTER_PROMPT_PRESETS.map((preset) => (
                 <Pressable
                   key={preset.label}
                   onPress={() => setPromptText(preset.prompt)}
-                  className="px-2.5 py-1.5 border border-zinc-800 bg-zinc-950 active:border-white"
+                  style={{
+                    backgroundColor: theme.colors.badgeBg,
+                    borderColor: theme.colors.cardBorder,
+                    borderWidth: 1,
+                    borderRadius: theme.borderRadius ? 6 : 0,
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                  }}
                 >
-                  <Text className="text-xs font-mono text-zinc-300">{preset.label}</Text>
+                  <Text
+                    style={{
+                      color: theme.colors.badgeText,
+                      fontFamily: theme.isMono ? 'Courier' : undefined,
+                      fontSize: 11,
+                      fontWeight: '600',
+                    }}
+                  >
+                    {preset.label}
+                  </Text>
                 </Pressable>
               ))}
             </View>
 
-            <Label className="text-zinc-400 mb-2">VAULT MASTER PROMPT</Label>
+            <Label className="mb-2">VAULT MASTER PROMPT</Label>
             <TextInput
               value={promptText}
               onChangeText={setPromptText}
               placeholder="e.g. Always format responses in clean bullet points with actionable takeaways..."
-              placeholderTextColor="#52525B"
+              placeholderTextColor={theme.colors.inputPlaceholder}
               multiline
               numberOfLines={5}
-              style={{ minHeight: 110, textAlignVertical: 'top' }}
-              className="border border-zinc-700 bg-zinc-950 text-white p-3 font-mono text-xs mb-4"
+              style={{
+                minHeight: 110,
+                textAlignVertical: 'top',
+                backgroundColor: theme.colors.inputBg,
+                borderColor: theme.colors.inputBorder,
+                borderWidth: 1,
+                borderRadius: theme.borderRadius ? 8 : 0,
+                color: theme.colors.inputText,
+                fontFamily: theme.isMono ? 'Courier' : undefined,
+                padding: 12,
+                fontSize: 13,
+                marginBottom: 16,
+              }}
               editable={!isLoading && !isSaving}
             />
 

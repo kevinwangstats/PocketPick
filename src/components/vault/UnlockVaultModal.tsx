@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Button, Input, H2, Label, ErrorText } from '../ui';
+import { useTheme } from '../../theme';
 
 export interface UnlockVaultModalProps {
   visible: boolean;
@@ -24,6 +25,7 @@ export const UnlockVaultModal: React.FC<UnlockVaultModalProps> = ({
   onClose,
   onUnlock,
 }) => {
+  const { theme } = useTheme();
   const [passphrase, setPassphrase] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isUnlocking, setIsUnlocking] = useState(false);
@@ -61,15 +63,34 @@ export const UnlockVaultModal: React.FC<UnlockVaultModalProps> = ({
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1 bg-black/95 justify-center px-5"
+        style={{
+          flex: 1,
+          backgroundColor: theme.isDark ? 'rgba(0,0,0,0.88)' : 'rgba(0,0,0,0.45)',
+          justifyContent: 'center',
+          paddingHorizontal: 20,
+        }}
       >
         <ScrollView
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
           keyboardShouldPersistTaps="handled"
         >
-          <View className="bg-black border border-zinc-700 p-6 my-auto">
+          <View
+            style={{
+              backgroundColor: theme.colors.card,
+              borderColor: theme.colors.cardBorder,
+              borderWidth: 1,
+              borderRadius: theme.borderRadius ? 14 : 0,
+              padding: 24,
+              marginVertical: 'auto',
+              shadowColor: '#000000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.15,
+              shadowRadius: 10,
+              elevation: 5,
+            }}
+          >
             <View className="flex-row justify-between items-center mb-4">
-              <H2>AUTHENTICATE</H2>
+              <H2>{theme.isUppercase ? 'AUTHENTICATE' : 'Authenticate'}</H2>
               <Pressable
                 onPress={() => {
                   setError(null);
@@ -77,11 +98,22 @@ export const UnlockVaultModal: React.FC<UnlockVaultModalProps> = ({
                 }}
                 hitSlop={12}
               >
-                <Text className="text-zinc-500 font-mono text-base">[CLOSE]</Text>
+                <Text
+                  style={{
+                    color: theme.colors.accent,
+                    fontFamily: theme.isMono ? 'Courier' : undefined,
+                    fontWeight: '600',
+                    fontSize: 14,
+                  }}
+                >
+                  {theme.isUppercase ? '[CLOSE]' : 'Close'}
+                </Text>
               </Pressable>
             </View>
 
-            <Label className="mb-4">TARGET: {vaultName}</Label>
+            <Label className="mb-4">
+              {theme.isUppercase ? `TARGET: ${vaultName.toUpperCase()}` : `Target: ${vaultName}`}
+            </Label>
 
             <Input
               label="Vault Passphrase"
@@ -98,7 +130,7 @@ export const UnlockVaultModal: React.FC<UnlockVaultModalProps> = ({
             {error && <ErrorText className="mb-3">{error}</ErrorText>}
 
             <Button variant="primary" loading={isUnlocking} onPress={handleUnlock} className="mt-2">
-              VERIFY & UNLOCK
+              {theme.isUppercase ? 'VERIFY & UNLOCK' : 'Verify & Unlock'}
             </Button>
           </View>
         </ScrollView>

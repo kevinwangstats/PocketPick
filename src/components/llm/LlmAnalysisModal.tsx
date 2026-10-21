@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Modal, ScrollView, Pressable, TextInput, Alert } from 'react-native';
+import { View, Modal, ScrollView, Pressable, TextInput, Alert, Text } from 'react-native';
 import { PROMPT_PRESETS } from '../../services/llm/promptTemplates';
 import { queryLlm } from '../../services/llm/llmClient';
 import { getVaultMasterPrompt } from '../../services/vault/vaultService';
 import { createTicket } from '../../services/tickets/ticketService';
 import { Card, H2, Label, Body, Mono, Button, ErrorText } from '../ui';
+import { useTheme } from '../../theme';
 
 export interface LlmAnalysisModalProps {
   visible: boolean;
@@ -23,6 +24,7 @@ export function LlmAnalysisModal({
   vaultKey,
   onTicketCreated,
 }: LlmAnalysisModalProps) {
+  const { theme } = useTheme();
   const [selectedPrompt, setSelectedPrompt] = useState(PROMPT_PRESETS[0].prompt);
   const [customPrompt, setCustomPrompt] = useState('');
   const [llmOutput, setLlmOutput] = useState<string | null>(null);
@@ -85,53 +87,80 @@ export function LlmAnalysisModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/90 justify-center items-center p-4">
-        <Card className="w-full max-h-[85%] border-2 border-white p-5 bg-black">
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: theme.isDark ? 'rgba(0,0,0,0.85)' : 'rgba(0,0,0,0.45)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 16,
+        }}
+      >
+        <Card className="w-full max-h-[85%] p-5">
           <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
             <View className="flex-row justify-between items-center mb-4">
-              <H2 className="text-white text-lg">ON-DEVICE OCR & LLM</H2>
+              <H2 className="text-base">
+                {theme.isUppercase ? 'ON-DEVICE OCR & LLM' : 'On-Device OCR & LLM'}
+              </H2>
               <Button variant="secondary" className="h-7 px-2" onPress={onClose}>
-                CLOSE
+                {theme.isUppercase ? 'CLOSE' : 'Close'}
               </Button>
             </View>
 
             {/* Step 1: Extracted OCR inspection */}
-            <Label className="text-zinc-400 mb-2">RECOGNIZED TEXT (INSPECT / REDACT)</Label>
-            <View className="p-3 bg-zinc-950 border border-zinc-800 mb-4 max-h-36">
+            <Label className="mb-2">RECOGNIZED TEXT (INSPECT / REDACT)</Label>
+            <View
+              style={{
+                backgroundColor: theme.colors.badgeBg,
+                borderColor: theme.colors.cardBorder,
+                borderWidth: 1,
+                borderRadius: theme.borderRadius ? 8 : 0,
+                padding: 12,
+                marginBottom: 16,
+                maxHeight: 140,
+              }}
+            >
               <ScrollView>
-                <Mono className="text-xs text-zinc-300">
+                <Mono style={{ color: theme.colors.textSecondary }} className="text-xs">
                   {extractedText || '[NO TEXT DETECTED]'}
                 </Mono>
               </ScrollView>
             </View>
 
             {/* Step 2: Presets */}
-            <Label className="text-zinc-400 mb-2">PROMPT PRESETS</Label>
+            <Label className="mb-2">PROMPT PRESETS</Label>
             <View className="flex-row flex-wrap gap-2 mb-3">
-              {PROMPT_PRESETS.map((preset) => (
-                <Pressable
-                  key={preset.id}
-                  onPress={() => {
-                    setSelectedPrompt(preset.prompt);
-                    setCustomPrompt('');
-                  }}
-                  className={`px-2.5 py-1.5 border ${
-                    selectedPrompt === preset.prompt && !customPrompt
-                      ? 'border-white bg-white'
-                      : 'border-zinc-800 bg-zinc-950'
-                  }`}
-                >
-                  <Label
-                    className={
-                      selectedPrompt === preset.prompt && !customPrompt
-                        ? 'text-black'
-                        : 'text-zinc-400'
-                    }
+              {PROMPT_PRESETS.map((preset) => {
+                const isSelected = selectedPrompt === preset.prompt && !customPrompt;
+                return (
+                  <Pressable
+                    key={preset.id}
+                    onPress={() => {
+                      setSelectedPrompt(preset.prompt);
+                      setCustomPrompt('');
+                    }}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                      borderRadius: theme.borderRadius ? 6 : 0,
+                      borderWidth: isSelected ? 2 : 1,
+                      borderColor: isSelected ? theme.colors.accent : theme.colors.cardBorder,
+                      backgroundColor: isSelected ? theme.colors.badgeBg : theme.colors.card,
+                    }}
                   >
-                    {preset.label}
-                  </Label>
-                </Pressable>
-              ))}
+                    <Text
+                      style={{
+                        color: isSelected ? theme.colors.accent : theme.colors.textMuted,
+                        fontFamily: theme.isMono ? 'Courier' : undefined,
+                        fontWeight: isSelected ? '700' : '500',
+                        fontSize: 11,
+                      }}
+                    >
+                      {preset.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
 
             {/* Custom prompt input */}
@@ -139,8 +168,18 @@ export function LlmAnalysisModal({
               value={customPrompt}
               onChangeText={setCustomPrompt}
               placeholder="Or enter custom instruction..."
-              placeholderTextColor="#71717A"
-              className="border border-zinc-800 bg-black text-white p-3 font-mono text-xs mb-4"
+              placeholderTextColor={theme.colors.inputPlaceholder}
+              style={{
+                backgroundColor: theme.colors.inputBg,
+                borderColor: theme.colors.inputBorder,
+                borderWidth: 1,
+                borderRadius: theme.borderRadius ? 8 : 0,
+                color: theme.colors.inputText,
+                fontFamily: theme.isMono ? 'Courier' : undefined,
+                padding: 12,
+                fontSize: 12,
+                marginBottom: 16,
+              }}
             />
 
             {error && <ErrorText className="mb-3">{error}</ErrorText>}
@@ -152,15 +191,33 @@ export function LlmAnalysisModal({
               onPress={handleExecute}
               className="mb-4"
             >
-              RUN LLM QUERY
+              {theme.isUppercase ? 'RUN LLM QUERY' : 'Run LLM Query'}
             </Button>
 
             {/* LLM Result */}
             {llmOutput && (
-              <View className="mt-4 border-t border-zinc-800 pt-4">
-                <Label className="text-white mb-2">LLM RESPONSE</Label>
-                <View className="p-3 bg-zinc-950 border border-zinc-700 mb-4">
-                  <Body className="text-xs text-zinc-200">{llmOutput}</Body>
+              <View
+                style={{
+                  borderTopWidth: 1,
+                  borderTopColor: theme.colors.divider,
+                  paddingTop: 16,
+                  marginTop: 16,
+                }}
+              >
+                <Label className="mb-2">LLM RESPONSE</Label>
+                <View
+                  style={{
+                    backgroundColor: theme.colors.badgeBg,
+                    borderColor: theme.colors.cardBorder,
+                    borderWidth: 1,
+                    borderRadius: theme.borderRadius ? 8 : 0,
+                    padding: 12,
+                    marginBottom: 16,
+                  }}
+                >
+                  <Body style={{ color: theme.colors.textPrimary }} className="text-xs">
+                    {llmOutput}
+                  </Body>
                 </View>
 
                 <Button
@@ -169,7 +226,7 @@ export function LlmAnalysisModal({
                   disabled={savingTicket || !vaultKey}
                   onPress={handleSaveAsTicket}
                 >
-                  SAVE AS ENCRYPTED TICKET
+                  {theme.isUppercase ? 'SAVE AS ENCRYPTED TICKET' : 'Save as Encrypted Ticket'}
                 </Button>
               </View>
             )}

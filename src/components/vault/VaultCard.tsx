@@ -10,7 +10,7 @@ import {
   PanResponderGestureState,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Card, Label, Body } from '../ui';
+import { Card, Body } from '../ui';
 import { useTheme } from '../../theme';
 
 export interface VaultCardProps {
@@ -146,7 +146,20 @@ export const VaultCard: React.FC<VaultCardProps> = ({
         <Card>
           <Pressable onPress={handleCardPress} className="active:opacity-80">
             <View className="flex-row items-center justify-between mb-1.5">
-              <Label className="text-white font-bold">{name}</Label>
+              <Text
+                style={{
+                  color: theme.colors.textPrimary,
+                  fontWeight: '700',
+                  fontSize: 16,
+                  fontFamily: theme.isMono ? 'Courier' : undefined,
+                  letterSpacing: theme.isUppercase ? 0.8 : 0,
+                  flex: 1,
+                  marginRight: 8,
+                }}
+                numberOfLines={1}
+              >
+                {theme.isUppercase ? name.toUpperCase() : name}
+              </Text>
               <View
                 style={{
                   paddingHorizontal: 8,

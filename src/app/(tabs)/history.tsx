@@ -62,13 +62,16 @@ export default function HistoryScreen() {
       <H1 className="mb-4">SELECTION LOG</H1>
 
       {!activeVaultId ? (
-        <Card className="items-center justify-center p-8 border border-zinc-800 bg-zinc-950 mt-4">
-          <Label className="text-zinc-400 mb-2">VAULT LOCKED</Label>
-          <Body className="text-zinc-500 text-center mb-6">
+        <Card className="items-center justify-center p-8 mt-4">
+          <Label className="mb-2">VAULT LOCKED</Label>
+          <Body style={{ color: theme.colors.textMuted }} className="text-center mb-6">
             Unlock a vault to decrypt and view item details in your audit history.
           </Body>
-          <View className="h-14 w-full border border-dashed border-zinc-800 items-center justify-center">
-            <Label className="text-zinc-600">[ ENCRYPTED AUDIT TRAIL ]</Label>
+          <View
+            style={{ borderColor: theme.colors.cardBorder }}
+            className="h-14 w-full border border-dashed items-center justify-center"
+          >
+            <Label>[ ENCRYPTED AUDIT TRAIL ]</Label>
           </View>
         </Card>
       ) : (

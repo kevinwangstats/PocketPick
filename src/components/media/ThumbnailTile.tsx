@@ -5,6 +5,7 @@ import { Buffer } from '@craftzdog/react-native-buffer';
 import { Resource } from '../../db/schema';
 import { decryptBuffer } from '../../crypto/cipher';
 import { getCachedThumbnail, setCachedThumbnail } from '../../services/media/thumbnailCache';
+import { useTheme } from '../../theme';
 
 export interface ThumbnailTileProps {
   resource: Resource;
@@ -21,6 +22,7 @@ export const ThumbnailTile: React.FC<ThumbnailTileProps> = ({
   onPress,
   onLongPress,
 }) => {
+  const { theme } = useTheme();
   const [dataUri, setDataUri] = useState<string | null>(
     () => getCachedThumbnail(resource.id) ?? null,
   );
@@ -97,25 +99,73 @@ export const ThumbnailTile: React.FC<ThumbnailTileProps> = ({
     <Pressable
       onPress={onPress}
       onLongPress={onLongPress}
-      style={{ width: size, height: size }}
-      className="bg-zinc-950 border border-zinc-800 items-center justify-center m-0.5 active:opacity-75"
+      style={{
+        width: size,
+        height: size,
+        backgroundColor: theme.colors.card,
+        borderColor: theme.colors.cardBorder,
+        borderWidth: 1,
+        borderRadius: theme.borderRadius ? 8 : 0,
+        alignItems: 'center',
+        justifyContent: 'center',
+        margin: 2,
+        overflow: 'hidden',
+      }}
+      className="active:opacity-75"
     >
       {isLoading ? (
-        <ActivityIndicator size="small" color="#FFFFFF" />
+        <ActivityIndicator size="small" color={theme.colors.accent} />
       ) : hasError ? (
         <View className="items-center px-1">
-          <Text className="text-[10px] font-mono text-red-400 text-center">[ERR]</Text>
+          <Text
+            style={{
+              color: theme.colors.destructiveButtonText,
+              fontFamily: theme.isMono ? 'Courier' : undefined,
+            }}
+            className="text-[10px] text-center"
+          >
+            [ERR]
+          </Text>
         </View>
       ) : dataUri ? (
         <Image source={{ uri: dataUri }} style={{ width: size, height: size }} resizeMode="cover" />
       ) : (
         <View className="items-center">
-          <Text className="text-[10px] font-mono text-zinc-600">[LOCKED]</Text>
+          <Text
+            style={{
+              color: theme.colors.textMuted,
+              fontFamily: theme.isMono ? 'Courier' : undefined,
+            }}
+            className="text-[10px]"
+          >
+            [LOCKED]
+          </Text>
         </View>
       )}
       {Boolean(resource.encryptedPayload) && (
-        <View className="absolute bottom-1 right-1 bg-black/80 px-1 border border-zinc-700">
-          <Text className="text-[8px] font-mono text-zinc-300">NOTE</Text>
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 3,
+            right: 3,
+            backgroundColor: theme.colors.badgeBg,
+            borderColor: theme.colors.cardBorder,
+            borderWidth: 1,
+            borderRadius: theme.borderRadius ? 4 : 0,
+            paddingHorizontal: 4,
+            paddingVertical: 1,
+          }}
+        >
+          <Text
+            style={{
+              color: theme.colors.badgeText,
+              fontFamily: theme.isMono ? 'Courier' : undefined,
+              fontSize: 8,
+              fontWeight: '700',
+            }}
+          >
+            NOTE
+          </Text>
         </View>
       )}
     </Pressable>

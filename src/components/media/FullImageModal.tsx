@@ -24,6 +24,7 @@ import { queryLlm } from '../../services/llm/llmClient';
 import { getVaultMasterPrompt } from '../../services/vault/vaultService';
 import { getPhotoText, savePhotoText } from '../../services/media/photoTextService';
 import { LlmAnalysisModal } from '../llm';
+import { useTheme } from '../../theme';
 
 export interface FullImageModalProps {
   visible: boolean;
@@ -57,6 +58,7 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
   const [isOcrRunning, setIsOcrRunning] = useState(false);
   const [ocrModalVisible, setOcrModalVisible] = useState(false);
   const [extractedOcrText, setExtractedOcrText] = useState('');
+  const { theme } = useTheme();
 
   // Load photo & decrypted associated text
   useEffect(() => {
@@ -248,26 +250,69 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1 bg-black justify-between py-10 px-4"
+        style={{
+          flex: 1,
+          backgroundColor: theme.colors.background,
+          justifyContent: 'space-between',
+          paddingTop: 48,
+          paddingBottom: 24,
+          paddingHorizontal: 16,
+        }}
       >
         {/* Header */}
         <View className="flex-row justify-between items-center mb-3">
-          <Label className="text-zinc-400">ENCRYPTED MEDIA VIEWER</Label>
+          <Label>{theme.isUppercase ? 'ENCRYPTED MEDIA VIEWER' : 'Encrypted Media Viewer'}</Label>
           <Pressable
             onPress={onClose}
-            className="px-3 py-1 bg-zinc-900 border border-zinc-700 active:bg-zinc-800"
+            style={{
+              backgroundColor: theme.colors.badgeBg,
+              borderColor: theme.colors.cardBorder,
+              borderWidth: 1,
+              borderRadius: theme.borderRadius ? 6 : 0,
+              paddingHorizontal: 10,
+              paddingVertical: 5,
+            }}
           >
-            <Text className="text-white font-mono text-xs uppercase">[CLOSE]</Text>
+            <Text
+              style={{
+                color: theme.colors.accent,
+                fontFamily: theme.isMono ? 'Courier' : undefined,
+                fontWeight: '600',
+                fontSize: 12,
+              }}
+            >
+              {theme.isUppercase ? '[CLOSE]' : 'Close'}
+            </Text>
           </Pressable>
         </View>
 
         <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 24 }}>
           {/* Photo Display */}
-          <View className="w-full items-center justify-center min-h-[220px] bg-zinc-950 border border-zinc-800 mb-4 p-2">
+          <View
+            style={{
+              width: '100%',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: 220,
+              backgroundColor: theme.colors.card,
+              borderColor: theme.colors.cardBorder,
+              borderWidth: 1,
+              borderRadius: theme.borderRadius ? 12 : 0,
+              marginBottom: 16,
+              padding: 8,
+            }}
+          >
             {isLoading ? (
-              <ActivityIndicator size="large" color="#FFFFFF" />
+              <ActivityIndicator size="large" color={theme.colors.accent} />
             ) : error ? (
-              <View className="p-4 border border-red-900 bg-red-950/20">
+              <View
+                style={{
+                  padding: 16,
+                  borderColor: theme.colors.destructiveButtonBorder,
+                  backgroundColor: theme.colors.destructiveButtonBg,
+                  borderRadius: theme.borderRadius ? 8 : 0,
+                }}
+              >
                 <ErrorText>{error}</ErrorText>
               </View>
             ) : dataUri ? (
@@ -280,15 +325,40 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
           </View>
 
           {/* Associated Text & AI Suggestion Section */}
-          <View className="p-3 bg-zinc-950 border border-zinc-800 mb-4">
+          <View
+            style={{
+              padding: 14,
+              backgroundColor: theme.colors.card,
+              borderColor: theme.colors.cardBorder,
+              borderWidth: 1,
+              borderRadius: theme.borderRadius ? 12 : 0,
+              marginBottom: 16,
+            }}
+          >
             <View className="flex-row justify-between items-center mb-2">
-              <Label className="text-white font-bold">ASSOCIATED TEXT & NOTES</Label>
+              <Label>
+                {theme.isUppercase ? 'ASSOCIATED TEXT & NOTES' : 'Associated Text & Notes'}
+              </Label>
               <Pressable
                 onPress={handleAiSuggest}
                 disabled={isSuggesting || !dataUri}
-                className="px-2.5 py-1 bg-zinc-900 border border-zinc-700 active:border-white"
+                style={{
+                  backgroundColor: theme.colors.badgeBg,
+                  borderColor: theme.colors.cardBorder,
+                  borderWidth: 1,
+                  borderRadius: theme.borderRadius ? 6 : 0,
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                }}
               >
-                <Text className="text-xs font-mono text-zinc-300">
+                <Text
+                  style={{
+                    color: theme.colors.badgeText,
+                    fontSize: 11,
+                    fontFamily: theme.isMono ? 'Courier' : undefined,
+                    fontWeight: '600',
+                  }}
+                >
                   {isSuggesting ? 'GENERATING...' : '+ AI SUGGEST'}
                 </Text>
               </Pressable>
@@ -301,16 +371,36 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
                 setIsTextDirty(true);
               }}
               placeholder="Type photo notes, keywords, or tap + AI SUGGEST to auto-generate..."
-              placeholderTextColor="#52525B"
+              placeholderTextColor={theme.colors.inputPlaceholder}
               multiline
               numberOfLines={4}
-              style={{ minHeight: 80, textAlignVertical: 'top' }}
-              className="border border-zinc-800 bg-black text-white p-2.5 font-mono text-xs mb-3"
+              style={{
+                minHeight: 80,
+                textAlignVertical: 'top',
+                backgroundColor: theme.colors.inputBg,
+                borderColor: theme.colors.inputBorder,
+                borderWidth: 1,
+                borderRadius: theme.borderRadius ? 8 : 0,
+                color: theme.colors.inputText,
+                fontFamily: theme.isMono ? 'Courier' : undefined,
+                padding: 10,
+                fontSize: 12,
+                marginBottom: 12,
+              }}
             />
 
             <View className="flex-row justify-end items-center gap-2">
               {isTextDirty && (
-                <Text className="text-xs font-mono text-zinc-500 mr-2">[UNSAVED]</Text>
+                <Text
+                  style={{
+                    color: theme.colors.textMuted,
+                    fontFamily: theme.isMono ? 'Courier' : undefined,
+                    fontSize: 11,
+                    marginRight: 6,
+                  }}
+                >
+                  [UNSAVED]
+                </Text>
               )}
               <Button
                 variant="primary"
@@ -319,26 +409,47 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
                 onPress={handleSaveText}
                 className="h-8 px-4"
               >
-                SAVE NOTE
+                {theme.isUppercase ? 'SAVE NOTE' : 'Save Note'}
               </Button>
             </View>
           </View>
         </ScrollView>
 
         {/* Action Toolbar */}
-        <View className="flex-row justify-between items-center border-t border-zinc-900 pt-3">
-          <Label className="text-zinc-600 font-mono text-xs">
-            {resource?.id ? `ID: ${resource.id.substring(0, 8)}...` : ''}
-          </Label>
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderTopWidth: 1,
+            borderTopColor: theme.colors.divider,
+            paddingTop: 12,
+          }}
+        >
+          <Label>{resource?.id ? `ID: ${resource.id.substring(0, 8)}...` : ''}</Label>
 
           <View className="flex-row space-x-2 gap-2">
             <Pressable
               onPress={handleRunOcr}
               disabled={isOcrRunning || !resource}
-              className="px-3 py-2 bg-zinc-950 border border-zinc-700 active:border-white"
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                backgroundColor: theme.colors.secondaryButtonBg,
+                borderColor: theme.colors.secondaryButtonBorder,
+                borderWidth: 1,
+                borderRadius: theme.borderRadius ? 8 : 0,
+              }}
             >
-              <Text className="text-xs font-mono text-zinc-300 uppercase tracking-wider">
-                {isOcrRunning ? 'EXTRACTING...' : 'FULL OCR'}
+              <Text
+                style={{
+                  color: theme.colors.secondaryButtonText,
+                  fontFamily: theme.isMono ? 'Courier' : undefined,
+                  fontSize: 11,
+                  fontWeight: '600',
+                }}
+              >
+                {isOcrRunning ? 'EXTRACTING...' : theme.isUppercase ? 'FULL OCR' : 'Full OCR'}
               </Text>
             </Pressable>
 
@@ -346,10 +457,24 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
               <Pressable
                 onPress={handleDelete}
                 disabled={isDeleting}
-                className="px-3 py-2 bg-zinc-950 border border-red-900 active:bg-red-950"
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  backgroundColor: theme.colors.destructiveButtonBg,
+                  borderColor: theme.colors.destructiveButtonBorder,
+                  borderWidth: 1,
+                  borderRadius: theme.borderRadius ? 8 : 0,
+                }}
               >
-                <Text className="text-xs font-mono text-red-400 uppercase tracking-wider">
-                  {isDeleting ? 'SHREDDING...' : 'SHRED'}
+                <Text
+                  style={{
+                    color: theme.colors.destructiveButtonText,
+                    fontFamily: theme.isMono ? 'Courier' : undefined,
+                    fontSize: 11,
+                    fontWeight: '600',
+                  }}
+                >
+                  {isDeleting ? 'SHREDDING...' : theme.isUppercase ? 'SHRED' : 'Shred'}
                 </Text>
               </Pressable>
             )}

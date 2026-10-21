@@ -173,7 +173,8 @@
     2. **`Sakura Pink` (Cute • Rose & Cream):** Warm soft blush background (`#FFF5F7`), white surfaces with delicate rose borders (`#FCE7F3`), sweet vibrant pink accents (`#EC4899`), 16px soft rounded corners, gentle typography, and natural casing.
     3. **`Cyber Terminal` (Dark • High-Contrast Mono):** The original tactical dark theme with pure black (`#000000`), sharp 0px corners, monospace Courier font, and uppercase styling.
   - **Adaptive Typography & Casing:** Monospace and forced ALL-CAPS styling are restricted to the Cyber theme; light and cute themes employ natural title/sentence casing and system typography.
-  - **Cross-App Propagation:** Tab navigation bar, headers, buttons, cards, inputs, modal backgrounds, and the iOS status bar (`StatusBar`) dynamically adjust to the active theme.
+  - **Cross-App Propagation & Consistency:** Tab navigation bar, stack headers, buttons, cards, inputs, segmented controls, modal backgrounds, and the iOS status bar (`StatusBar`) dynamically adjust to the active theme.
+  - **Complete Screen & Modal Coverage:** All screens (Vaults, Vault Detail, Randomizer, Audit History, Settings) and all interactive modals (Unlock Vault, Create Vault, Ticket Editor, Master Prompt, Full Media Viewer, OCR & LLM Analysis, Pool Filter) adhere consistently to the active theme palette and typography without retaining hardcoded pitch-black styling.
   - **Persistence:** Selected theme choice is preserved across restarts via `expo-secure-store`.
 
 ### US-011: Configurable Vault Auto-Lock Timeout

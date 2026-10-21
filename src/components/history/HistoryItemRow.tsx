@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Image } from 'react-native';
+import { View, Image, Text } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Buffer } from '@craftzdog/react-native-buffer';
 import { HistoryLogWithResource } from '../../services/history/historyService';
 import { decryptString, decryptBuffer } from '../../crypto/cipher';
 import { getCachedThumbnail, setCachedThumbnail } from '../../services/media/thumbnailCache';
-import { Card, Body, Label, Mono } from '../ui';
+import { Card, Mono } from '../ui';
+import { useTheme } from '../../theme';
 
 export interface HistoryItemRowProps {
   item: HistoryLogWithResource;
@@ -13,6 +14,7 @@ export interface HistoryItemRowProps {
 }
 
 export function HistoryItemRow({ item, vaultKey }: HistoryItemRowProps) {
+  const { theme } = useTheme();
   const [decryptedTitle, setDecryptedTitle] = useState<string>('...');
   const [photoThumbUri, setPhotoThumbUri] = useState<string | null>(null);
   const [isDecrypted, setIsDecrypted] = useState(false);
@@ -102,40 +104,80 @@ export function HistoryItemRow({ item, vaultKey }: HistoryItemRowProps) {
   });
 
   return (
-    <Card className="mb-2 p-3 border border-zinc-800 bg-zinc-950 flex-row items-center justify-between">
+    <Card className="mb-2 p-3 flex-row items-center justify-between">
       <View className="flex-row items-center flex-1 mr-3">
         {photoThumbUri ? (
           <Image
             source={{ uri: photoThumbUri }}
-            className="w-10 h-10 border border-zinc-700 bg-zinc-900 mr-3"
+            style={{
+              width: 40,
+              height: 40,
+              borderColor: theme.colors.cardBorder,
+              borderWidth: 1,
+              borderRadius: theme.borderRadius ? 6 : 0,
+              marginRight: 12,
+            }}
             resizeMode="cover"
           />
         ) : (
-          <View className="w-10 h-10 border border-zinc-800 bg-black items-center justify-center mr-3">
-            <Mono className="text-[10px] text-zinc-500 font-bold">
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderColor: theme.colors.cardBorder,
+              borderWidth: 1,
+              backgroundColor: theme.colors.badgeBg,
+              borderRadius: theme.borderRadius ? 6 : 0,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 12,
+            }}
+          >
+            <Mono style={{ color: theme.colors.badgeText }} className="text-[10px] font-bold">
               {item.resource?.type === 'photo' ? 'IMG' : 'TXT'}
             </Mono>
           </View>
         )}
 
         <View className="flex-1">
-          <Body
-            className={`font-medium ${
-              isDecrypted ? 'text-white' : 'text-zinc-600 font-mono text-xs'
-            }`}
+          <Text
+            style={{
+              color: isDecrypted ? theme.colors.textPrimary : theme.colors.textMuted,
+              fontWeight: '600',
+              fontSize: 14,
+              fontFamily: theme.isMono ? 'Courier' : undefined,
+            }}
             numberOfLines={1}
           >
             {decryptedTitle}
-          </Body>
-          <Mono className="text-[10px] text-zinc-500 font-mono mt-0.5">
+          </Text>
+          <Mono style={{ color: theme.colors.textMuted }} className="text-[10px] mt-0.5">
             {item.actionType.toUpperCase()} • {formattedDate}
           </Mono>
         </View>
       </View>
 
       <View className="items-end">
-        <View className="bg-zinc-900 border border-zinc-700 px-1.5 py-0.5">
-          <Label className="text-[10px] text-zinc-300">W:{item.resource?.weight ?? 1}</Label>
+        <View
+          style={{
+            backgroundColor: theme.colors.badgeBg,
+            borderColor: theme.colors.cardBorder,
+            borderWidth: 1,
+            borderRadius: theme.borderRadius ? 4 : 0,
+            paddingHorizontal: 6,
+            paddingVertical: 2,
+          }}
+        >
+          <Text
+            style={{
+              color: theme.colors.badgeText,
+              fontFamily: theme.isMono ? 'Courier' : undefined,
+              fontSize: 10,
+              fontWeight: '600',
+            }}
+          >
+            W:{item.resource?.weight ?? 1}
+          </Text>
         </View>
       </View>
     </Card>

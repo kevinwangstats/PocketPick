@@ -175,64 +175,108 @@ export default function VaultDetailScreen() {
       {/* Vault Header with Master Prompt Settings */}
       <View className="flex-row justify-between items-center mb-3">
         <View className="flex-1 pr-2">
-          <Label className="text-zinc-500">ACTIVE VAULT</Label>
+          <Label>ACTIVE VAULT</Label>
           <Text
-            className="text-white font-mono font-bold text-base tracking-wider"
+            style={{
+              color: theme.colors.textPrimary,
+              fontFamily: theme.isMono ? 'Courier' : undefined,
+              fontWeight: '700',
+              fontSize: 16,
+              letterSpacing: theme.isUppercase ? 0.8 : 0,
+            }}
             numberOfLines={1}
           >
-            {vaultName.toUpperCase()}
+            {theme.isUppercase ? vaultName.toUpperCase() : vaultName}
           </Text>
         </View>
         <Pressable
           onPress={() => setIsMasterPromptModalOpen(true)}
-          className="px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 active:border-white"
+          style={{
+            backgroundColor: theme.colors.card,
+            borderColor: theme.colors.cardBorder,
+            borderWidth: 1,
+            borderRadius: theme.borderRadius ? 8 : 0,
+            paddingHorizontal: 10,
+            paddingVertical: 6,
+          }}
+          className="active:opacity-80"
         >
-          <Text className="text-xs font-mono text-zinc-300 tracking-wider">[ MASTER PROMPT ]</Text>
+          <Text
+            style={{
+              color: theme.colors.accent,
+              fontFamily: theme.isMono ? 'Courier' : undefined,
+              fontSize: 11,
+              fontWeight: '600',
+              letterSpacing: theme.isUppercase ? 0.8 : 0,
+            }}
+          >
+            {theme.isUppercase ? '[ MASTER PROMPT ]' : 'Master Prompt'}
+          </Text>
         </Pressable>
       </View>
 
-      {/* Segmented Monochrome Tabs */}
-      <View className="flex-row border border-zinc-800 mb-4">
-        <Pressable
-          onPress={() => setActiveTab('tickets')}
-          className={`flex-1 py-2.5 items-center ${
-            activeTab === 'tickets' ? 'bg-white' : 'bg-black'
-          }`}
-        >
-          <Text
-            className={`font-mono text-xs uppercase tracking-wider ${
-              activeTab === 'tickets' ? 'text-black font-bold' : 'text-zinc-400'
-            }`}
-          >
-            TICKETS ({ticketList.length})
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setActiveTab('photos')}
-          className={`flex-1 py-2.5 items-center ${
-            activeTab === 'photos' ? 'bg-white' : 'bg-black'
-          }`}
-        >
-          <Text
-            className={`font-mono text-xs uppercase tracking-wider ${
-              activeTab === 'photos' ? 'text-black font-bold' : 'text-zinc-400'
-            }`}
-          >
-            PHOTOS ({photoList.length})
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setActiveTab('pick')}
-          className={`flex-1 py-2.5 items-center ${activeTab === 'pick' ? 'bg-white' : 'bg-black'}`}
-        >
-          <Text
-            className={`font-mono text-xs uppercase tracking-wider ${
-              activeTab === 'pick' ? 'text-black font-bold' : 'text-zinc-400'
-            }`}
-          >
-            PICK
-          </Text>
-        </Pressable>
+      {/* Segmented Adaptive Theme Tabs */}
+      <View
+        style={{
+          flexDirection: 'row',
+          backgroundColor: theme.colors.badgeBg,
+          borderRadius: theme.borderRadius ? 10 : 0,
+          padding: 3,
+          marginBottom: 16,
+          borderWidth: theme.isDark ? 1 : 0,
+          borderColor: theme.colors.cardBorder,
+        }}
+      >
+        {(
+          [
+            {
+              id: 'tickets',
+              label: theme.isUppercase
+                ? `TICKETS (${ticketList.length})`
+                : `Tickets (${ticketList.length})`,
+            },
+            {
+              id: 'photos',
+              label: theme.isUppercase
+                ? `PHOTOS (${photoList.length})`
+                : `Photos (${photoList.length})`,
+            },
+            { id: 'pick', label: theme.isUppercase ? 'PICK' : 'Pick' },
+          ] as const
+        ).map((tab) => {
+          const isSelected = activeTab === tab.id;
+          return (
+            <Pressable
+              key={tab.id}
+              onPress={() => setActiveTab(tab.id)}
+              style={{
+                flex: 1,
+                paddingVertical: 8,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: theme.borderRadius ? 8 : 0,
+                backgroundColor: isSelected ? theme.colors.card : 'transparent',
+                shadowColor: isSelected && !theme.isDark ? '#000000' : 'transparent',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: isSelected && !theme.isDark ? 0.08 : 0,
+                shadowRadius: 2,
+                elevation: isSelected && !theme.isDark ? 1 : 0,
+              }}
+            >
+              <Text
+                style={{
+                  color: isSelected ? theme.colors.accent : theme.colors.textMuted,
+                  fontWeight: isSelected ? '700' : '500',
+                  fontSize: 12,
+                  fontFamily: theme.isMono ? 'Courier' : undefined,
+                  letterSpacing: theme.isUppercase ? 0.8 : 0,
+                }}
+              >
+                {tab.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       {/* Tickets Tab */}
@@ -310,8 +354,19 @@ export default function VaultDetailScreen() {
           />
 
           {pickerError && (
-            <Card className="border border-zinc-700 bg-zinc-900 p-3 mt-4">
-              <Body className="text-xs text-white font-mono">{pickerError}</Body>
+            <Card
+              style={{
+                borderColor: theme.colors.destructiveButtonBorder,
+                backgroundColor: theme.colors.destructiveButtonBg,
+              }}
+              className="p-3 mt-4"
+            >
+              <Body
+                style={{ color: theme.colors.destructiveButtonText }}
+                className="text-xs font-mono"
+              >
+                {pickerError}
+              </Body>
             </Card>
           )}
 
@@ -341,13 +396,32 @@ export default function VaultDetailScreen() {
       )}
 
       {/* Bottom Danger Action */}
-      <View className="py-2.5 border-t border-zinc-900 items-center">
+      <View
+        style={{ borderTopWidth: 1, borderTopColor: theme.colors.divider }}
+        className="py-2.5 items-center"
+      >
         <Pressable
           onPress={handleDeleteVault}
-          className="px-4 py-1.5 border border-red-900/60 active:bg-red-950"
+          style={{
+            paddingHorizontal: 16,
+            paddingVertical: 6,
+            borderWidth: 1,
+            borderColor: theme.colors.destructiveButtonBorder,
+            backgroundColor: theme.colors.destructiveButtonBg,
+            borderRadius: theme.borderRadius ? 8 : 0,
+          }}
+          className="active:opacity-75"
         >
-          <Text className="text-[11px] font-mono text-red-500 uppercase tracking-widest">
-            [ DESTROY VAULT ]
+          <Text
+            style={{
+              color: theme.colors.destructiveButtonText,
+              fontSize: 11,
+              fontFamily: theme.isMono ? 'Courier' : undefined,
+              fontWeight: '600',
+              letterSpacing: theme.isUppercase ? 1.2 : 0,
+            }}
+          >
+            {theme.isUppercase ? '[ DESTROY VAULT ]' : 'Destroy Vault'}
           </Text>
         </Pressable>
       </View>

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Button, Input, H2, Label, ErrorText } from '../ui';
+import { useTheme } from '../../theme';
 
 export interface CreateVaultModalProps {
   visible: boolean;
@@ -22,6 +23,7 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({
   onClose,
   onSubmit,
 }) => {
+  const { theme } = useTheme();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [passphrase, setPassphrase] = useState('');
@@ -70,15 +72,34 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        className="flex-1 bg-black/95 justify-center px-5"
+        style={{
+          flex: 1,
+          backgroundColor: theme.isDark ? 'rgba(0,0,0,0.88)' : 'rgba(0,0,0,0.45)',
+          justifyContent: 'center',
+          paddingHorizontal: 20,
+        }}
       >
         <ScrollView
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
           keyboardShouldPersistTaps="handled"
         >
-          <View className="bg-black border border-zinc-700 p-6 my-auto">
+          <View
+            style={{
+              backgroundColor: theme.colors.card,
+              borderColor: theme.colors.cardBorder,
+              borderWidth: 1,
+              borderRadius: theme.borderRadius ? 14 : 0,
+              padding: 24,
+              marginVertical: 'auto',
+              shadowColor: '#000000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.15,
+              shadowRadius: 10,
+              elevation: 5,
+            }}
+          >
             <View className="flex-row justify-between items-center mb-4">
-              <H2>NEW VAULT</H2>
+              <H2>{theme.isUppercase ? 'NEW VAULT' : 'New Vault'}</H2>
               <Pressable
                 onPress={() => {
                   setError(null);
@@ -86,12 +107,23 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({
                 }}
                 hitSlop={12}
               >
-                <Text className="text-zinc-500 font-mono text-base">[CLOSE]</Text>
+                <Text
+                  style={{
+                    color: theme.colors.accent,
+                    fontFamily: theme.isMono ? 'Courier' : undefined,
+                    fontWeight: '600',
+                    fontSize: 14,
+                  }}
+                >
+                  {theme.isUppercase ? '[CLOSE]' : 'Close'}
+                </Text>
               </Pressable>
             </View>
 
             <Label className="mb-4">
-              DERIVES A 256-BIT AES-GCM KEY WITH 100,000 PBKDF2 ROUNDS.
+              {theme.isUppercase
+                ? 'DERIVES A 256-BIT AES-GCM KEY WITH 100,000 PBKDF2 ROUNDS.'
+                : 'Derives a 256-bit AES-GCM key with 100,000 PBKDF2 rounds.'}
             </Label>
 
             <Input
@@ -146,7 +178,7 @@ export const CreateVaultModal: React.FC<CreateVaultModalProps> = ({
               onPress={handleSubmit}
               className="mt-2"
             >
-              CREATE & INITIALIZE
+              {theme.isUppercase ? 'CREATE & INITIALIZE' : 'Create & Initialize'}
             </Button>
           </View>
         </ScrollView>

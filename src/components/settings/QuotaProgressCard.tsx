@@ -3,8 +3,10 @@ import { View } from 'react-native';
 import { getQuotaStatus, MAX_MONTHLY_QUOTA } from '../../services/quota/quotaManager';
 import { QuotaStatus } from '../../services/quota/types';
 import { Card, H2, Label, Body, Mono } from '../ui';
+import { useTheme } from '../../theme';
 
 export function QuotaProgressCard() {
+  const { theme } = useTheme();
   const [quota, setQuota] = useState<QuotaStatus | null>(null);
 
   useEffect(() => {
@@ -25,25 +27,43 @@ export function QuotaProgressCard() {
   const percentage = Math.min(100, Math.round((currentCount / maxLimit) * 100));
 
   return (
-    <Card className="p-5 border border-zinc-800 bg-zinc-950 mb-6">
+    <Card className="p-5 mb-6">
       <View className="flex-row justify-between items-center mb-1">
-        <H2 className="text-white text-lg">MONTHLY QUOTA GUARD</H2>
-        <Label className="text-zinc-400">{quota?.periodMonth ?? 'CURRENT'}</Label>
+        <H2 className="text-lg">
+          {theme.isUppercase ? 'MONTHLY QUOTA GUARD' : 'Monthly Quota Guard'}
+        </H2>
+        <Label>{quota?.periodMonth ?? (theme.isUppercase ? 'CURRENT' : 'Current')}</Label>
       </View>
-      <Body className="text-zinc-500 text-xs mb-4">
+      <Body style={{ color: theme.colors.textMuted }} className="text-xs mb-4">
         Hard limit enforced by on-device SQLite barrier to eliminate accidental charges.
       </Body>
 
       {/* Progress Bar Container */}
-      <View className="h-4 w-full bg-zinc-900 border border-zinc-700 mb-3 overflow-hidden">
-        <View className="h-full bg-white" style={{ width: `${percentage}%` }} />
+      <View
+        style={{
+          height: 16,
+          backgroundColor: theme.colors.badgeBg,
+          borderColor: theme.colors.cardBorder,
+          borderWidth: 1,
+          borderRadius: theme.borderRadius ? 6 : 0,
+          marginBottom: 12,
+          overflow: 'hidden',
+        }}
+      >
+        <View
+          style={{
+            height: '100%',
+            backgroundColor: theme.colors.accent,
+            width: `${percentage}%`,
+          }}
+        />
       </View>
 
       <View className="flex-row justify-between items-center">
-        <Mono className="text-xs text-white">
+        <Mono style={{ color: theme.colors.textPrimary }} className="text-xs">
           {currentCount} / {maxLimit} REQUESTS
         </Mono>
-        <Mono className="text-xs text-zinc-400">
+        <Mono style={{ color: theme.colors.textMuted }} className="text-xs">
           {quota?.remaining ?? MAX_MONTHLY_QUOTA} REMAINING
         </Mono>
       </View>

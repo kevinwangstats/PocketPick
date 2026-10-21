@@ -65,7 +65,7 @@ export default function RandomizerScreen() {
       style={{ backgroundColor: theme.colors.background }}
       className="flex-1 px-5 py-6"
       refreshControl={
-        <RefreshControl refreshing={loading} onRefresh={loadPool} tintColor="#FFFFFF" />
+        <RefreshControl refreshing={loading} onRefresh={loadPool} tintColor={theme.colors.accent} />
       }
       contentContainerStyle={{ paddingBottom: 60 }}
     >
@@ -73,13 +73,16 @@ export default function RandomizerScreen() {
       <H1 className="mb-4">RANDOM PICKER</H1>
 
       {isLocked ? (
-        <Card className="items-center justify-center p-8 border border-zinc-800 bg-zinc-950 mt-4">
-          <Label className="text-zinc-400 mb-2">VAULT LOCKED</Label>
-          <Body className="text-zinc-500 text-center mb-6">
+        <Card className="items-center justify-center p-8 mt-4">
+          <Label className="mb-2">VAULT LOCKED</Label>
+          <Body style={{ color: theme.colors.textMuted }} className="text-center mb-6">
             Unlock a vault from the Vaults tab to enable secure, cryptographically fair selection.
           </Body>
-          <View className="h-14 w-full border border-dashed border-zinc-800 items-center justify-center">
-            <Label className="text-zinc-600">[ ENCRYPTED STATE ACTIVE ]</Label>
+          <View
+            style={{ borderColor: theme.colors.cardBorder }}
+            className="h-14 w-full border border-dashed items-center justify-center"
+          >
+            <Label>[ ENCRYPTED STATE ACTIVE ]</Label>
           </View>
         </Card>
       ) : (
@@ -109,8 +112,19 @@ export default function RandomizerScreen() {
           />
 
           {error && (
-            <Card className="border border-zinc-700 bg-zinc-900 p-3 mt-4">
-              <Body className="text-xs text-white font-mono">{error}</Body>
+            <Card
+              style={{
+                borderColor: theme.colors.destructiveButtonBorder,
+                backgroundColor: theme.colors.destructiveButtonBg,
+              }}
+              className="p-3 mt-4"
+            >
+              <Body
+                style={{ color: theme.colors.destructiveButtonText }}
+                className="text-xs font-mono"
+              >
+                {error}
+              </Body>
             </Card>
           )}
 
