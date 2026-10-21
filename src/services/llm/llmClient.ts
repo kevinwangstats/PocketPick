@@ -4,7 +4,8 @@ import { incrementAndEnforceQuota } from '../quota/quotaManager';
 export interface LlmAnalysisRequest {
   systemPrompt?: string;
   userPrompt: string;
-  contextText: string;
+  contextText?: string;
+  imageBase64?: string;
   masterPrompt?: string;
   model?: string;
 }
@@ -19,9 +20,9 @@ export interface LlmAnalysisResponse {
 /**
  * Sends a query to the configured LLM provider (gemini, deepseek, or kimi).
  * Defaults to:
- * - Gemini: gemini-3.8-flash
+ * - Gemini: gemini-3.8-flash (multimodal vision support)
  * - DeepSeek: deepseek-v4-flash
- * - Kimi: kimi-k2.6
+ * - Kimi: kimi-k2.6 (multimodal vision support)
  * Strictly enforces monthly quota guard before sending network request.
  * Appends the vault-level master prompt whenever present.
  */
@@ -39,10 +40,14 @@ export async function queryLlm(request: LlmAnalysisRequest): Promise<LlmAnalysis
   // Enforce monthly quota barrier FIRST. Throws QuotaExceededError if limit reached.
   const quotaUsed = await incrementAndEnforceQuota();
 
-  let fullPrompt = `${request.userPrompt}
+  let fullPrompt = request.userPrompt;
+  if (request.contextText && request.contextText.trim().length > 0) {
+    fullPrompt = `${fullPrompt}
 
 ---
-${request.contextText}`;
+${request.contextText.trim()}`;
+  }
+
   if (request.masterPrompt && request.masterPrompt.trim().length > 0) {
     fullPrompt = `${fullPrompt}
 
@@ -68,6 +73,24 @@ ${request.masterPrompt.trim()}`;
       let lastError: Error | null = null;
       let succeeded = false;
 
+      // Construct multimodal message content if image is provided
+      let userMessageContent: any = fullPrompt;
+      if (request.imageBase64) {
+        const imageUrl = request.imageBase64.startsWith('data:')
+          ? request.imageBase64
+          : `data:image/jpeg;base64,${request.imageBase64}`;
+
+        userMessageContent = [
+          { type: 'text', text: fullPrompt },
+          {
+            type: 'image_url',
+            image_url: {
+              url: imageUrl,
+            },
+          },
+        ];
+      }
+
       for (const endpoint of endpoints) {
         try {
           const res = await fetch(endpoint, {
@@ -82,7 +105,7 @@ ${request.masterPrompt.trim()}`;
                 ...(request.systemPrompt
                   ? [{ role: 'system', content: request.systemPrompt }]
                   : []),
-                { role: 'user', content: fullPrompt },
+                { role: 'user', content: userMessageContent },
               ],
               temperature: 0.2,
             }),
@@ -140,6 +163,17 @@ ${request.masterPrompt.trim()}`;
       const data = await res.json();
       resultText = data.choices?.[0]?.message?.content ?? '';
     } else if (provider === 'gemini') {
+      const parts: any[] = [{ text: fullPrompt }];
+      if (request.imageBase64) {
+        const cleanBase64 = request.imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
+        parts.push({
+          inline_data: {
+            mime_type: 'image/jpeg',
+            data: cleanBase64,
+          },
+        });
+      }
+
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${modelToUse}:generateContent?key=${apiKey}`,
         {
@@ -148,7 +182,7 @@ ${request.masterPrompt.trim()}`;
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: fullPrompt }] }],
+            contents: [{ parts }],
             ...(request.systemPrompt
               ? { system_instruction: { parts: [{ text: request.systemPrompt }] } }
               : {}),

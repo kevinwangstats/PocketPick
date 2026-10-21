@@ -11,6 +11,7 @@ export interface LlmAnalysisModalProps {
   visible: boolean;
   onClose: () => void;
   extractedText: string;
+  imageBase64?: string;
   vaultId: string;
   vaultKey: Buffer | null;
   onTicketCreated?: () => void;
@@ -20,6 +21,7 @@ export function LlmAnalysisModal({
   visible,
   onClose,
   extractedText,
+  imageBase64,
   vaultId,
   vaultKey,
   onTicketCreated,
@@ -43,6 +45,7 @@ export function LlmAnalysisModal({
       const response = await queryLlm({
         userPrompt: promptToUse,
         contextText: extractedText,
+        imageBase64,
         masterPrompt,
       });
       setLlmOutput(response.content);
@@ -187,7 +190,7 @@ export function LlmAnalysisModal({
             <Button
               variant="primary"
               loading={loading}
-              disabled={!extractedText || loading}
+              disabled={(!extractedText && !imageBase64) || loading}
               onPress={handleExecute}
               className="mb-4"
             >

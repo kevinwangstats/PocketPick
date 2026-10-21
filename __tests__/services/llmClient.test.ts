@@ -176,4 +176,32 @@ describe('LLM Client (Gemini, DeepSeek, & Kimi with Quota Guard)', () => {
       expect.anything(),
     );
   });
+
+  it('sends multimodal image payload with image_url to Kimi', async () => {
+    jest.spyOn(llmKeyStore, 'getLlmProvider').mockResolvedValueOnce('kimi');
+    jest.spyOn(llmKeyStore, 'getLlmApiKey').mockResolvedValueOnce('sk-kimi-multimodal');
+    jest.spyOn(quotaManager, 'incrementAndEnforceQuota').mockResolvedValueOnce(20);
+
+    const mockFetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: 'Analysis of sunset photo' } }],
+      }),
+    });
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    const response = await queryLlm({
+      userPrompt: 'Describe this photo',
+      imageBase64: 'data:image/jpeg;base64,/9j/testdata',
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://api.moonshot.ai/v1/chat/completions',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('"type":"image_url"'),
+      }),
+    );
+    expect(response.content).toBe('Analysis of sunset photo');
+  });
 });

@@ -181,14 +181,42 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
       // 2. Fetch the vault master prompt
       const masterPrompt = await getVaultMasterPrompt(resource.vaultId);
 
-      // 3. Query LLM to synthesize a description/suggestion
-      const prompt = ocrResult.trim()
-        ? 'Generate a concise description, title, and key details for this document/photo based on the text:'
-        : 'Generate a short description and suggested tags for this encrypted photo:';
+      // 3. Obtain image base64 for multimodal vision models (e.g. Kimi kimi-k2.6, Gemini)
+      let imageBase64ToSend = dataUri ?? undefined;
+      if (
+        !imageBase64ToSend &&
+        resource.encryptedThumbnailPath &&
+        resource.thumbnailIv &&
+        resource.thumbnailTag
+      ) {
+        const resolvedThumb = resolveResourcePath(resource.encryptedThumbnailPath);
+        if (resolvedThumb) {
+          const cipherB64 = await FileSystem.readAsStringAsync(resolvedThumb, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          const decryptedBuf = decryptBuffer(
+            {
+              ciphertext: cipherB64,
+              iv: resource.thumbnailIv,
+              tag: resource.thumbnailTag,
+            },
+            vaultKey,
+            resource.vaultId,
+          );
+          imageBase64ToSend = `data:image/jpeg;base64,${decryptedBuf.toString('base64')}`;
+        }
+      }
+
+      // 4. Query LLM to synthesize a description/suggestion with visual context
+      const hasOcr = Boolean(ocrResult && ocrResult.trim().length > 0);
+      const prompt = hasOcr
+        ? 'Analyze this photo and its text content. Generate a concise title, description, and key tags:'
+        : 'Analyze this photo carefully. Generate a concise title, short description, and key tags describing what is shown in the image:';
 
       const response = await queryLlm({
         userPrompt: prompt,
-        contextText: ocrResult || 'Visual photo asset',
+        contextText: hasOcr ? `OCR Extracted Text:\n${ocrResult.trim()}` : undefined,
+        imageBase64: imageBase64ToSend,
         masterPrompt,
       });
 
@@ -494,6 +522,7 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
           visible={ocrModalVisible}
           onClose={() => setOcrModalVisible(false)}
           extractedText={extractedOcrText}
+          imageBase64={dataUri ?? undefined}
           vaultId={resource?.vaultId ?? ''}
           vaultKey={vaultKey}
         />
