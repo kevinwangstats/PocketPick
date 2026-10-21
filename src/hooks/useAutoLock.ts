@@ -1,18 +1,52 @@
 import { useEffect, useState, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { useSessionStore } from '../stores/useSessionStore';
+import { useVaultTimeoutStore } from '../stores/useVaultTimeoutStore';
 
 export interface UseAutoLockOptions {
-  /** Inactivity timeout in milliseconds before auto-locking (default: 0 = immediate on background) */
+  /** Vault open timeout in minutes before auto-locking (defaults to configured system setting). */
+  lockTimeoutMinutes?: number;
+  /** Direct timeout in milliseconds (legacy / unit testing support). */
   lockTimeoutMs?: number;
 }
 
 export function useAutoLock(options: UseAutoLockOptions = {}) {
-  const { lockTimeoutMs = 0 } = options;
+  const storeTimeoutMinutes = useVaultTimeoutStore((state) => state.timeoutMinutes);
+
+  // Compute effective timeout in milliseconds
+  let effectiveTimeoutMs: number;
+  if (options.lockTimeoutMs !== undefined) {
+    effectiveTimeoutMs = options.lockTimeoutMs;
+  } else if (options.lockTimeoutMinutes !== undefined) {
+    effectiveTimeoutMs = options.lockTimeoutMinutes * 60 * 1000;
+  } else {
+    effectiveTimeoutMs = storeTimeoutMinutes * 60 * 1000;
+  }
+
   const [isShieldActive, setIsShieldActive] = useState(false);
   const lockVault = useSessionStore((state) => state.lockVault);
   const backgroundTimestampRef = useRef<number | null>(null);
 
+  // Periodic in-app timer to lock vault once X minutes have elapsed in foreground
+  useEffect(() => {
+    if (effectiveTimeoutMs <= 0) return;
+
+    const intervalId = setInterval(() => {
+      const { activeVaultKey, unlockedAt } = useSessionStore.getState();
+      if (activeVaultKey && unlockedAt) {
+        const elapsed = Date.now() - unlockedAt;
+        if (elapsed >= effectiveTimeoutMs) {
+          lockVault();
+        }
+      }
+    }, 1000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [lockVault, effectiveTimeoutMs]);
+
+  // AppState monitoring for backgrounding and app-switcher protection
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'background' || nextAppState === 'inactive') {
@@ -20,15 +54,18 @@ export function useAutoLock(options: UseAutoLockOptions = {}) {
         setIsShieldActive(true);
         backgroundTimestampRef.current = Date.now();
 
-        if (lockTimeoutMs === 0) {
+        if (effectiveTimeoutMs === 0) {
           // Zeroize keys immediately on background
           lockVault();
         }
       } else if (nextAppState === 'active') {
+        const now = Date.now();
         const bgTime = backgroundTimestampRef.current;
-        if (bgTime && lockTimeoutMs > 0) {
-          const elapsed = Date.now() - bgTime;
-          if (elapsed >= lockTimeoutMs) {
+        const { activeVaultKey, unlockedAt } = useSessionStore.getState();
+
+        if (activeVaultKey && effectiveTimeoutMs > 0) {
+          const totalElapsed = unlockedAt ? now - unlockedAt : bgTime ? now - bgTime : 0;
+          if (totalElapsed >= effectiveTimeoutMs) {
             lockVault();
           }
         }
@@ -45,9 +82,10 @@ export function useAutoLock(options: UseAutoLockOptions = {}) {
     return () => {
       subscription.remove();
     };
-  }, [lockVault, lockTimeoutMs]);
+  }, [lockVault, effectiveTimeoutMs]);
 
   return {
     isShieldActive,
+    effectiveTimeoutMinutes: Math.round(effectiveTimeoutMs / 60000),
   };
 }

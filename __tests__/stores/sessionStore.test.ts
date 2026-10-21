@@ -11,9 +11,10 @@ describe('Ephemeral useSessionStore (Zustand) & Memory Zeroization', () => {
     expect(state.activeVaultId).toBeNull();
     expect(state.activeVaultKey).toBeNull();
     expect(state.lastActiveTimestamp).toBeNull();
+    expect(state.unlockedAt).toBeNull();
   });
 
-  it('sets active vault and stores the key in memory', () => {
+  it('sets active vault, records unlockedAt, and stores the key in memory', () => {
     const key = QuickCrypto.randomBytes(32);
     useSessionStore.getState().setActiveVault('vault-001', key);
 
@@ -21,6 +22,7 @@ describe('Ephemeral useSessionStore (Zustand) & Memory Zeroization', () => {
     expect(state.activeVaultId).toBe('vault-001');
     expect(state.activeVaultKey).toBe(key);
     expect(state.lastActiveTimestamp).toBeGreaterThan(0);
+    expect(state.unlockedAt).toBeGreaterThan(0);
   });
 
   // CRITICAL SECURITY INVARIANT: Zeroization verification
@@ -36,6 +38,7 @@ describe('Ephemeral useSessionStore (Zustand) & Memory Zeroization', () => {
     const state = useSessionStore.getState();
     expect(state.activeVaultId).toBeNull();
     expect(state.activeVaultKey).toBeNull();
+    expect(state.unlockedAt).toBeNull();
 
     // Verify the original key buffer in memory was completely wiped with 0x00
     expect(key.equals(Buffer.alloc(32, 0))).toBe(true);

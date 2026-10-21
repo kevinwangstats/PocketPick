@@ -175,3 +175,20 @@
   - **Adaptive Typography & Casing:** Monospace and forced ALL-CAPS styling are restricted to the Cyber theme; light and cute themes employ natural title/sentence casing and system typography.
   - **Cross-App Propagation:** Tab navigation bar, headers, buttons, cards, inputs, modal backgrounds, and the iOS status bar (`StatusBar`) dynamically adjust to the active theme.
   - **Persistence:** Selected theme choice is preserved across restarts via `expo-secure-store`.
+
+### US-011: Configurable Vault Auto-Lock Timeout
+
+- **User Request:** _"Can we implement a mechnism so that when I open a vault with password, it will stay open for x minutes, with x configurable in the system tab as an integer."_
+- **User Story:**
+  - _As a_ user unlocking and managing my encrypted vaults,
+  - _I want_ the vault to stay open for `x` minutes after entering my passphrase, with `x` configurable as an integer in the System tab,
+  - _So that_ I do not have to repeatedly re-enter my passphrase during my active session while ensuring memory keys are automatically zeroized once the duration expires.
+- **Acceptance Criteria:**
+  - **System Tab Setting:** Under the **System** tab (`VaultTimeoutSettings`), users can configure the auto-lock timeout duration `x` in minutes as a non-negative integer.
+  - **Quick Presets & Custom Input:** Features preset selections (`1m`, `5m`, `15m`, `30m`, `60m`) alongside a direct numeric input for any integer value.
+  - **Persistence:** Stored securely in `expo-secure-store` with a default of 5 minutes (`POCKETPICK_VAULT_TIMEOUT_MINUTES`).
+  - **Foreground Expiration:** When a vault is opened, `unlockedAt` timestamp is recorded in `useSessionStore`. A periodic timer automatically locks the vault and zeroizes the key buffer when `x` minutes have elapsed.
+  - **Background & Inactive Transition:**
+    - `PrivacyShield` immediately conceals the application interface in the iOS app switcher.
+    - If `x === 0`, memory keys are immediately zeroized.
+    - If `x > 0`, keys remain protected in memory while within the `x`-minute window; if `x` minutes elapse while backgrounded, keys are zeroized upon return to the active state.

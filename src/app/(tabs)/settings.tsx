@@ -1,7 +1,12 @@
 import React from 'react';
 import { ScrollView, View } from 'react-native';
 import { H1, Label, Card, Body, Mono } from '../../components/ui';
-import { ApiKeySettings, QuotaProgressCard, ThemeSwitcher } from '../../components/settings';
+import {
+  ApiKeySettings,
+  QuotaProgressCard,
+  ThemeSwitcher,
+  VaultTimeoutSettings,
+} from '../../components/settings';
 import { useTheme } from '../../theme';
 
 export default function SettingsScreen() {
@@ -18,6 +23,9 @@ export default function SettingsScreen() {
 
       {/* Theme Switcher */}
       <ThemeSwitcher />
+
+      {/* Vault Auto-Lock Timeout */}
+      <VaultTimeoutSettings />
 
       {/* Quota Progress Card */}
       <QuotaProgressCard />

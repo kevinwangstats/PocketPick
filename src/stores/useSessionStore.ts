@@ -6,6 +6,7 @@ export interface SessionState {
   activeVaultId: string | null;
   activeVaultKey: Buffer | null;
   lastActiveTimestamp: number | null;
+  unlockedAt: number | null;
   setActiveVault: (vaultId: string, key: Buffer) => void;
   lockVault: () => void;
   touchActivity: () => void;
@@ -20,16 +21,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   activeVaultId: null,
   activeVaultKey: null,
   lastActiveTimestamp: null,
+  unlockedAt: null,
 
   setActiveVault: (vaultId: string, key: Buffer) => {
     const prevKey = get().activeVaultKey;
     if (prevKey) {
       zeroizeBuffer(prevKey);
     }
+    const now = Date.now();
     set({
       activeVaultId: vaultId,
       activeVaultKey: key,
-      lastActiveTimestamp: Date.now(),
+      unlockedAt: now,
+      lastActiveTimestamp: now,
     });
   },
 
@@ -41,6 +45,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({
       activeVaultId: null,
       activeVaultKey: null,
+      unlockedAt: null,
       lastActiveTimestamp: null,
     });
   },
