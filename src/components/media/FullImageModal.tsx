@@ -1,3 +1,4 @@
+import { resolveResourcePath } from '../../services/media/pathResolver';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -90,7 +91,11 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
           setIsTextDirty(false);
         }
 
-        const ciphertextBase64 = await FileSystem.readAsStringAsync(resource.encryptedFilePath, {
+        const resolvedFilePath = resolveResourcePath(resource.encryptedFilePath);
+        if (!resolvedFilePath) {
+          throw new Error('Unable to resolve photo file path');
+        }
+        const ciphertextBase64 = await FileSystem.readAsStringAsync(resolvedFilePath, {
           encoding: FileSystem.EncodingType.Base64,
         });
 
@@ -163,8 +168,10 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
     setError(null);
     try {
       // 1. Run ephemeral OCR on image bytes
+      const resolvedFilePath =
+        resolveResourcePath(resource.encryptedFilePath) ?? resource.encryptedFilePath;
       const ocrResult = await processEphemeralOcr({
-        encryptedFilePath: resource.encryptedFilePath,
+        encryptedFilePath: resolvedFilePath,
         key: vaultKey,
         iv: resource.fileIv,
         tag: resource.fileTag,
@@ -215,8 +222,10 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
     setIsOcrRunning(true);
     setError(null);
     try {
+      const resolvedFilePath =
+        resolveResourcePath(resource.encryptedFilePath) ?? resource.encryptedFilePath;
       const text = await processEphemeralOcr({
-        encryptedFilePath: resource.encryptedFilePath,
+        encryptedFilePath: resolvedFilePath,
         key: vaultKey,
         iv: resource.fileIv,
         tag: resource.fileTag,

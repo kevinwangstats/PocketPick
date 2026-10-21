@@ -1,3 +1,4 @@
+import { toRelativeResourcePath } from './pathResolver';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import QuickCrypto from 'react-native-quick-crypto';
@@ -100,17 +101,18 @@ export async function ingestImage(
       encoding: FileSystem.EncodingType.Base64,
     });
 
-    // 7. Record metadata, hash, and cipher parameters in SQLite
+    // 7. Record metadata, hash, and cipher parameters in SQLite with relative paths
+    // iOS container UUID changes across app updates/reinstalls. Storing relative paths ensures persistence.
     await db.insert(resources).values({
       id: resourceId,
       vaultId,
       type: 'photo',
       weight: 1,
-      encryptedFilePath: fullEncPath,
+      encryptedFilePath: toRelativeResourcePath(fullEncPath),
       fileIv: encryptedFull.iv,
       fileTag: encryptedFull.tag,
       fileHash,
-      encryptedThumbnailPath: thumbEncPath,
+      encryptedThumbnailPath: toRelativeResourcePath(thumbEncPath),
       thumbnailIv: encryptedThumb.iv,
       thumbnailTag: encryptedThumb.tag,
       createdAt: new Date(),

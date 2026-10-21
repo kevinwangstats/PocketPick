@@ -1,3 +1,4 @@
+import { resolveResourcePath } from '../media/pathResolver';
 import * as FileSystem from 'expo-file-system/legacy';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { Buffer } from '@craftzdog/react-native-buffer';
@@ -33,8 +34,9 @@ export async function processEphemeralOcr({
   const tempPath = `${FileSystem.cacheDirectory ?? ''}${tempFileName}`;
 
   try {
-    // 1. Read encrypted file from disk
-    const ciphertextBase64 = await FileSystem.readAsStringAsync(encryptedFilePath, {
+    // 1. Read encrypted file from disk (resolving sandbox relative path if needed)
+    const resolvedPath = resolveResourcePath(encryptedFilePath) ?? encryptedFilePath;
+    const ciphertextBase64 = await FileSystem.readAsStringAsync(resolvedPath, {
       encoding: FileSystem.EncodingType.Base64,
     });
 

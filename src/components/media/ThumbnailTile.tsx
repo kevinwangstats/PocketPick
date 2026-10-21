@@ -1,3 +1,4 @@
+import { resolveResourcePath } from '../../services/media/pathResolver';
 import React, { useEffect, useState } from 'react';
 import { View, Image, Pressable, ActivityIndicator, Text } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -55,10 +56,13 @@ export const ThumbnailTile: React.FC<ThumbnailTileProps> = ({
       setHasError(false);
 
       try {
-        const ciphertextBase64 = await FileSystem.readAsStringAsync(
-          resource.encryptedThumbnailPath,
-          { encoding: FileSystem.EncodingType.Base64 },
-        );
+        const resolvedThumbPath = resolveResourcePath(resource.encryptedThumbnailPath);
+        if (!resolvedThumbPath) {
+          throw new Error('Unable to resolve thumbnail path');
+        }
+        const ciphertextBase64 = await FileSystem.readAsStringAsync(resolvedThumbPath, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
 
         const decryptedBytes = decryptBuffer(
           {

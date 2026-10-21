@@ -1,3 +1,4 @@
+import { resolveResourcePath } from '../media/pathResolver';
 import * as FileSystem from 'expo-file-system/legacy';
 import { eq } from 'drizzle-orm';
 import { getDatabase } from '../../db/client';
@@ -21,11 +22,13 @@ export async function deleteResource(resourceId: string): Promise<void> {
   const resource = rows[0];
 
   if (resource.type === 'photo') {
-    if (resource.encryptedFilePath) {
-      await shredFile(resource.encryptedFilePath);
+    const resolvedFull = resolveResourcePath(resource.encryptedFilePath);
+    if (resolvedFull) {
+      await shredFile(resolvedFull);
     }
-    if (resource.encryptedThumbnailPath) {
-      await shredFile(resource.encryptedThumbnailPath);
+    const resolvedThumb = resolveResourcePath(resource.encryptedThumbnailPath);
+    if (resolvedThumb) {
+      await shredFile(resolvedThumb);
     }
     thumbnailCache.delete(resource.id);
   }
@@ -45,11 +48,13 @@ export async function deleteVault(vaultId: string): Promise<void> {
 
   for (const item of vaultPhotos) {
     if (item.type === 'photo') {
-      if (item.encryptedFilePath) {
-        await shredFile(item.encryptedFilePath);
+      const resolvedFull = resolveResourcePath(item.encryptedFilePath);
+      if (resolvedFull) {
+        await shredFile(resolvedFull);
       }
-      if (item.encryptedThumbnailPath) {
-        await shredFile(item.encryptedThumbnailPath);
+      const resolvedThumb = resolveResourcePath(item.encryptedThumbnailPath);
+      if (resolvedThumb) {
+        await shredFile(resolvedThumb);
       }
       thumbnailCache.delete(item.id);
     }

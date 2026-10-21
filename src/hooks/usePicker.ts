@@ -1,3 +1,4 @@
+import { resolveResourcePath } from '../services/media/pathResolver';
 import { Buffer } from '@craftzdog/react-native-buffer';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import * as Haptics from 'expo-haptics';
@@ -64,13 +65,9 @@ export function usePicker({ vaultId, vaultKey, items, onPickLogged }: UsePickerO
       } else {
         // Photo resource: fetch or decrypt thumbnail
         let thumbnailBase64 = getCachedThumbnail(item.id);
-        if (
-          !thumbnailBase64 &&
-          item.encryptedThumbnailPath &&
-          item.thumbnailIv &&
-          item.thumbnailTag
-        ) {
-          const cipherB64 = await FileSystem.readAsStringAsync(item.encryptedThumbnailPath, {
+        const resolvedThumb = resolveResourcePath(item.encryptedThumbnailPath);
+        if (!thumbnailBase64 && resolvedThumb && item.thumbnailIv && item.thumbnailTag) {
+          const cipherB64 = await FileSystem.readAsStringAsync(resolvedThumb, {
             encoding: FileSystem.EncodingType.Base64,
           });
           const decryptedBuf = decryptBuffer(

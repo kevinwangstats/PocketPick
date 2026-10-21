@@ -103,6 +103,13 @@ export async function initializeTables(db: DB): Promise<void> {
     );`,
     'ALTER TABLE vaults ADD COLUMN llm_master_prompt TEXT;',
     'ALTER TABLE resources ADD COLUMN file_hash TEXT;',
+    // iOS container sandbox UUID migration: strip absolute container paths and make relative
+    `UPDATE resources
+     SET encrypted_file_path = SUBSTR(encrypted_file_path, INSTR(encrypted_file_path, 'vaults/'))
+     WHERE encrypted_file_path LIKE '%vaults/%' AND encrypted_file_path NOT LIKE 'vaults/%';`,
+    `UPDATE resources
+     SET encrypted_thumbnail_path = SUBSTR(encrypted_thumbnail_path, INSTR(encrypted_thumbnail_path, 'vaults/'))
+     WHERE encrypted_thumbnail_path LIKE '%vaults/%' AND encrypted_thumbnail_path NOT LIKE 'vaults/%';`,
   ];
 
   for (const stmt of ddlStatements) {

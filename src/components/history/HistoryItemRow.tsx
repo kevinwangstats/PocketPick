@@ -1,3 +1,4 @@
+import { resolveResourcePath } from '../../services/media/pathResolver';
 import React, { useState, useEffect } from 'react';
 import { View, Image, Text } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -62,26 +63,25 @@ export function HistoryItemRow({ item, vaultKey }: HistoryItemRowProps) {
           const cached = getCachedThumbnail(item.resource.id);
           if (cached) {
             if (!isCancelled) setPhotoThumbUri(cached);
-          } else if (
-            item.resource.encryptedThumbnailPath &&
-            item.resource.thumbnailIv &&
-            item.resource.thumbnailTag
-          ) {
-            const b64 = await FileSystem.readAsStringAsync(item.resource.encryptedThumbnailPath, {
-              encoding: FileSystem.EncodingType.Base64,
-            });
-            const decrypted = decryptBuffer(
-              {
-                ciphertext: b64,
-                iv: item.resource.thumbnailIv,
-                tag: item.resource.thumbnailTag,
-              },
-              vaultKey,
-              item.vaultId,
-            );
-            const dataUri = `data:image/jpeg;base64,${decrypted.toString('base64')}`;
-            setCachedThumbnail(item.resource.id, dataUri);
-            if (!isCancelled) setPhotoThumbUri(dataUri);
+          } else if (item.resource.thumbnailIv && item.resource.thumbnailTag) {
+            const resolvedThumb = resolveResourcePath(item.resource.encryptedThumbnailPath);
+            if (resolvedThumb) {
+              const b64 = await FileSystem.readAsStringAsync(resolvedThumb, {
+                encoding: FileSystem.EncodingType.Base64,
+              });
+              const decrypted = decryptBuffer(
+                {
+                  ciphertext: b64,
+                  iv: item.resource.thumbnailIv,
+                  tag: item.resource.thumbnailTag,
+                },
+                vaultKey,
+                item.vaultId,
+              );
+              const dataUri = `data:image/jpeg;base64,${decrypted.toString('base64')}`;
+              setCachedThumbnail(item.resource.id, dataUri);
+              if (!isCancelled) setPhotoThumbUri(dataUri);
+            }
           }
         }
       } catch {
