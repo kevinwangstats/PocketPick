@@ -17,28 +17,37 @@ export interface LlmAnalysisResponse {
 }
 
 /**
- * Sends a query to the configured LLM provider (gemini or deepseek).
+ * Sends a query to the configured LLM provider (gemini, deepseek, or kimi).
  * Defaults to:
  * - Gemini: gemini-3.8-flash
  * - DeepSeek: deepseek-v4-flash
+ * - Kimi: kimi-k2.6
  * Strictly enforces monthly quota guard before sending network request.
  * Appends the vault-level master prompt whenever present.
  */
 export async function queryLlm(request: LlmAnalysisRequest): Promise<LlmAnalysisResponse> {
-  const apiKey = await getLlmApiKey();
+  const provider = await getLlmProvider();
+  const apiKey = await getLlmApiKey(provider);
   if (!apiKey) {
-    throw new Error('No LLM API key configured. Please add an API key in Settings.');
+    throw new Error(
+      `No LLM API key configured for ${provider.toUpperCase()}. Please add an API key in Settings.`,
+    );
   }
 
-  const provider = await getLlmProvider();
   const modelToUse = request.model ?? DEFAULT_LLM_MODELS[provider];
 
   // Enforce monthly quota barrier FIRST. Throws QuotaExceededError if limit reached.
   const quotaUsed = await incrementAndEnforceQuota();
 
-  let fullPrompt = `${request.userPrompt}\n\n---\n${request.contextText}`;
+  let fullPrompt = `${request.userPrompt}
+
+---
+${request.contextText}`;
   if (request.masterPrompt && request.masterPrompt.trim().length > 0) {
-    fullPrompt = `${fullPrompt}\n\n[Vault Master Prompt]:\n${request.masterPrompt.trim()}`;
+    fullPrompt = `${fullPrompt}
+
+[Vault Master Prompt]:
+${request.masterPrompt.trim()}`;
   }
 
   // 15-second timeout controller
@@ -48,7 +57,32 @@ export async function queryLlm(request: LlmAnalysisRequest): Promise<LlmAnalysis
   try {
     let resultText = '';
 
-    if (provider === 'deepseek') {
+    if (provider === 'kimi') {
+      const res = await fetch('https://api.moonshot.cn/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: modelToUse,
+          messages: [
+            ...(request.systemPrompt ? [{ role: 'system', content: request.systemPrompt }] : []),
+            { role: 'user', content: fullPrompt },
+          ],
+          temperature: 0.2,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const errorBody = await res.text();
+        throw new Error(`Kimi API error (${res.status}): ${errorBody}`);
+      }
+
+      const data = await res.json();
+      resultText = data.choices?.[0]?.message?.content ?? '';
+    } else if (provider === 'deepseek') {
       const res = await fetch('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: {

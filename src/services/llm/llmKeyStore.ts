@@ -1,42 +1,84 @@
 import * as SecureStore from 'expo-secure-store';
 
-export type LlmProvider = 'gemini' | 'deepseek';
+export type LlmProvider = 'gemini' | 'deepseek' | 'kimi';
 
 export const DEFAULT_LLM_MODELS: Record<LlmProvider, string> = {
   gemini: 'gemini-3.8-flash',
   deepseek: 'deepseek-v4-flash',
+  kimi: 'kimi-k2.6',
 };
 
-const API_KEY_STORAGE_KEY = 'POCKETPICK_LLM_API_KEY';
+const LEGACY_API_KEY_STORAGE_KEY = 'POCKETPICK_LLM_API_KEY';
 const PROVIDER_STORAGE_KEY = 'POCKETPICK_LLM_PROVIDER';
 
-/**
- * Retrieves the stored LLM API key from iOS Keychain.
- */
-export async function getLlmApiKey(): Promise<string | null> {
-  return await SecureStore.getItemAsync(API_KEY_STORAGE_KEY, {
-    keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
-  });
+function getStorageKeyForProvider(provider: LlmProvider): string {
+  return `POCKETPICK_LLM_API_KEY_${provider}`;
 }
 
 /**
- * Persists the LLM API key in iOS Keychain.
+ * Retrieves the stored LLM API key for a specific provider (or the currently active provider).
  */
-export async function setLlmApiKey(key: string): Promise<void> {
+export async function getLlmApiKey(provider?: LlmProvider): Promise<string | null> {
+  const targetProvider = provider ?? (await getLlmProvider());
+  const providerKey = await SecureStore.getItemAsync(getStorageKeyForProvider(targetProvider), {
+    keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
+  });
+
+  if (providerKey) {
+    return providerKey;
+  }
+
+  // Fallback to legacy single key if provider is active
+  if (!provider) {
+    const legacyKey = await SecureStore.getItemAsync(LEGACY_API_KEY_STORAGE_KEY, {
+      keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
+    });
+    return legacyKey;
+  }
+
+  return null;
+}
+
+/**
+ * Persists the LLM API key for a specific provider in iOS Keychain.
+ */
+export async function setLlmApiKey(key: string, provider?: LlmProvider): Promise<void> {
   const trimmed = key.trim();
   if (!trimmed) {
     throw new Error('API key cannot be empty');
   }
-  await SecureStore.setItemAsync(API_KEY_STORAGE_KEY, trimmed, {
+  const targetProvider = provider ?? (await getLlmProvider());
+  await SecureStore.setItemAsync(getStorageKeyForProvider(targetProvider), trimmed, {
     keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
   });
 }
 
 /**
- * Deletes the stored LLM API key from iOS Keychain.
+ * Deletes the stored LLM API key for a specific provider from iOS Keychain.
  */
-export async function removeLlmApiKey(): Promise<void> {
-  await SecureStore.deleteItemAsync(API_KEY_STORAGE_KEY);
+export async function removeLlmApiKey(provider?: LlmProvider): Promise<void> {
+  const targetProvider = provider ?? (await getLlmProvider());
+  await SecureStore.deleteItemAsync(getStorageKeyForProvider(targetProvider));
+  await SecureStore.deleteItemAsync(LEGACY_API_KEY_STORAGE_KEY).catch(() => {});
+}
+
+/**
+ * Retrieves status of all configured provider keys.
+ */
+export async function getAllConfiguredProviderKeys(): Promise<Record<LlmProvider, boolean>> {
+  const providers: LlmProvider[] = ['gemini', 'deepseek', 'kimi'];
+  const result: Record<LlmProvider, boolean> = {
+    gemini: false,
+    deepseek: false,
+    kimi: false,
+  };
+
+  for (const p of providers) {
+    const key = await getLlmApiKey(p);
+    result[p] = Boolean(key && key.length > 0);
+  }
+
+  return result;
 }
 
 /**
@@ -44,7 +86,7 @@ export async function removeLlmApiKey(): Promise<void> {
  */
 export async function getLlmProvider(): Promise<LlmProvider> {
   const provider = await SecureStore.getItemAsync(PROVIDER_STORAGE_KEY);
-  if (provider === 'gemini' || provider === 'deepseek') {
+  if (provider === 'gemini' || provider === 'deepseek' || provider === 'kimi') {
     return provider;
   }
   return 'gemini';

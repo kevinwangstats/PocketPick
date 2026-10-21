@@ -124,21 +124,24 @@
     <Vault-specific instructions>
     ```
 
-### US-008: System LLM Provider Configuration (Gemini & DeepSeek Only)
+### US-008: Multi-Provider LLM Configuration (Gemini, DeepSeek, & Kimi)
 
-- **User Request:** _"In the bottom menu, "System", LLM configuration should only support gemini and deepseek for now. The model is defaulted to gemini 3.8 flash and deepseek v4 flash (agent might have outdated knowledge about if these models are available)"_
+- **User Request:** _"The app should be able to hold multiple api keys, one for each of the LLM providers. I also want to add another one for kimi, with the default to kimi-k2.6 model."_
 - **User Story:**
-  - _As a_ user configuring AI assistance in the System settings tab,
-  - _I want_ the app to support only Gemini and DeepSeek providers, defaulting to `gemini 3.8 flash` and `deepseek v4 flash`,
-  - _So that_ I can use high-speed, cost-effective models without extraneous provider options.
+  - _As a_ user configuring AI intelligence providers in the System settings tab,
+  - _I want_ the app to store separate API keys for each supported LLM provider (Gemini, DeepSeek, and Kimi) and allow instant switching between them,
+  - _So that_ I can seamlessly switch providers without re-entering my API keys, and leverage Kimi with its default `kimi-k2.6` model.
 - **Acceptance Criteria:**
-  - Under the **System** tab (`ApiKeySettings`), provider selection options are restricted to:
+  - **Multi-Key Isolation:** Stored in hardware-backed iOS Keychain (`SecureStore`) using independent, isolated keys per provider (`POCKETPICK_LLM_API_KEY_gemini`, `POCKETPICK_LLM_API_KEY_deepseek`, `POCKETPICK_LLM_API_KEY_kimi`).
+  - **Supported Providers & Default Models:**
     1. **`GEMINI`** — Default model: `gemini-3.8-flash`.
     2. **`DEEPSEEK`** — Default model: `deepseek-v4-flash`.
-  - Stored securely in iOS Keychain via `expo-secure-store`.
-  - Outgoing LLM requests in `llmClient.ts` use the corresponding provider endpoints:
+    3. **`KIMI`** — Default model: `kimi-k2.6`.
+  - **Provider Indicator:** The System tab (`ApiKeySettings`) displays indicators showing which providers currently have keys saved, allowing individual key updates or deletion per provider.
+  - **Network Endpoints:** Outgoing LLM requests in `llmClient.ts` route to the corresponding provider endpoints:
     - Gemini: `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`
     - DeepSeek: `https://api.deepseek.com/chat/completions` (OpenAI-compatible protocol with model `deepseek-v4-flash`).
+    - Kimi: `https://api.moonshot.cn/v1/chat/completions` (OpenAI-compatible protocol with model `kimi-k2.6`).
 
 ---
 
