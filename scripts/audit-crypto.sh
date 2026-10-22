@@ -40,14 +40,14 @@ else
   echo "✅ PASSED: Zero AsyncStorage references detected. Keychain and SQLCipher enforced."
 fi
 
-# 4. Ephemeral OCR Shredding Audit
-echo "[4/4] Auditing ephemeral OCR finally cleanup blocks..."
-OCR_SHRED=$(grep -rn "shredFile" src/services/ocr/ || true)
-if [ -z "$OCR_SHRED" ]; then
-  echo "❌ CRITICAL SECURITY ERROR: Ephemeral OCR is missing shredFile cleanup."
+# 4. Ephemeral Media Shredding Audit
+echo "[4/4] Auditing ephemeral media cleanup and shredding..."
+MEDIA_SHRED=$(grep -rn "shredFile" src/services/media/ || true)
+if [ -z "$MEDIA_SHRED" ]; then
+  echo "❌ CRITICAL SECURITY ERROR: Media pipeline is missing shredFile cleanup."
   AUDIT_FAILED=1
 else
-  echo "✅ PASSED: Ephemeral OCR invokes shredFile cleanup."
+  echo "✅ PASSED: Ephemeral media invokes shredFile cleanup."
 fi
 
 echo "=========================================================="

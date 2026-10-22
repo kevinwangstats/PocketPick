@@ -193,3 +193,22 @@
     - `PrivacyShield` immediately conceals the application interface in the iOS app switcher.
     - If `x === 0`, memory keys are immediately zeroized.
     - If `x > 0`, keys remain protected in memory while within the `x`-minute window; if `x` minutes elapse while backgrounded, keys are zeroized upon return to the active state.
+
+### US-012: In-Vault Direct Camera Capture (Zero-Leak Sandbox Isolation)
+
+- **User Request:** _"can we add a camera functionality in the app so that photos are only saved in this app and not viewable in the ios album like photos or google photos"_, and _"You should add this functionlity inside the vaults. Implement now and test"_
+- **User Story:**
+  - _As a_ security-focused user capturing confidential documents or private photos,
+  - _I want_ to shoot photos directly within my unlocked vault using the device camera,
+  - _So that_ captured photos are encrypted immediately into the vault without ever being saved to or viewable in the system iOS Camera Roll, Apple Photos, or Google Photos.
+- **Acceptance Criteria:**
+  - **In-Vault Camera Actions:**
+    - When the gallery is empty, the empty card presents both a **"TAKE PHOTO"** button and an **"IMPORT FROM DEVICE"** button.
+    - When the gallery contains photos, the header presents both a compact **"CAMERA"** button and an **"+ IMPORT"** button.
+  - **Camera Permission Handling:** When tapping the camera button, the app requests camera access via `ImagePicker.requestCameraPermissionsAsync()`. If denied, it presents a helpful permission alert without crashing.
+  - **Direct Capture & Instant Ingestion:**
+    - Launches device camera via `ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 1, allowsEditing: false })`.
+    - Captures photo directly to the application's isolated temporary cache without writing to `PHPhotoLibrary` / Camera Roll.
+    - Immediately passes the captured image into `ingestImage`: derives thumbnail, encrypts both full-res and thumbnail via AES-256-GCM, stores `.enc` files into vault storage, and shreds the temporary capture file in `finally`.
+  - **Zero Leak to System Album:** Photos captured inside PocketPick do not touch or appear in Apple Photos, iCloud Photos, or Google Photos.
+  - **Haptic & Visual Feedback:** Triggers a success haptic upon completed capture and immediately refreshes the gallery. If a duplicate image is detected, displays an alert and triggers a warning haptic.

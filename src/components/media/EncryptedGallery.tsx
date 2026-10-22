@@ -26,6 +26,7 @@ export const EncryptedGallery: React.FC<EncryptedGalleryProps> = ({
 }) => {
   const [selectedPhoto, setSelectedPhoto] = useState<Resource | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
   const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(
     null,
   );
@@ -33,6 +34,51 @@ export const EncryptedGallery: React.FC<EncryptedGalleryProps> = ({
   const screenWidth = Dimensions.get('window').width;
   const numColumns = 3;
   const tileSize = Math.floor((screenWidth - 44) / numColumns);
+
+  const handleTakePhoto = async () => {
+    if (!vaultKey) return;
+
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Camera Access Required',
+          'PocketPick requires camera access to take secure photos that are encrypted directly into your vault.',
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 1,
+        allowsEditing: false,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      if (!asset.uri) return;
+
+      setIsCapturing(true);
+
+      const res = await ingestImage(asset.uri, vaultId, vaultKey);
+      await onRefresh();
+
+      if (res.isDuplicate) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+        Alert.alert('Photo Already Exists', 'This photo is already stored in your vault.');
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      }
+    } catch (err) {
+      console.error('Camera capture failed:', err);
+      Alert.alert('Capture Failed', 'An error occurred while saving the photo.');
+    } finally {
+      setIsCapturing(false);
+    }
+  };
 
   const handlePickAndImport = async () => {
     if (!vaultKey) return;
@@ -109,30 +155,57 @@ export const EncryptedGallery: React.FC<EncryptedGalleryProps> = ({
     <View className="flex-1">
       <View className="flex-row justify-between items-center mb-4">
         <Label>{photos.length} ENCRYPTED PHOTOS</Label>
-        <Button
-          variant="secondary"
-          loading={isImporting}
-          onPress={handlePickAndImport}
-          className="h-9 px-3"
-        >
-          {importProgress
-            ? `IMPORTING (${importProgress.current}/${importProgress.total})...`
-            : isImporting
-              ? 'IMPORTING...'
-              : '+ IMPORT PHOTOS'}
-        </Button>
+        <View className="flex-row gap-2">
+          <Button
+            variant="secondary"
+            loading={isCapturing}
+            disabled={isImporting || isCapturing}
+            onPress={handleTakePhoto}
+            className="h-9 px-3"
+          >
+            {isCapturing ? 'CAPTURING...' : '📷 CAMERA'}
+          </Button>
+          <Button
+            variant="secondary"
+            loading={isImporting}
+            disabled={isImporting || isCapturing}
+            onPress={handlePickAndImport}
+            className="h-9 px-3"
+          >
+            {importProgress
+              ? `IMPORTING (${importProgress.current}/${importProgress.total})...`
+              : isImporting
+                ? 'IMPORTING...'
+                : '+ IMPORT'}
+          </Button>
+        </View>
       </View>
 
       {photos.length === 0 ? (
         <Card className="py-8 items-center justify-center">
           <Label className="mb-2">GALLERY EMPTY</Label>
-          <Body className="text-zinc-500 text-center mb-4">
-            Import images from your device. Select one or multiple photos to encrypt and store
-            safely.
+          <Body className="text-zinc-500 text-center mb-6 px-4">
+            Take photos directly into this vault (isolated from system albums) or import existing
+            photos to encrypt.
           </Body>
-          <Button variant="primary" loading={isImporting} onPress={handlePickAndImport}>
-            {isImporting ? 'IMPORTING...' : 'SELECT PHOTOS'}
-          </Button>
+          <View className="w-full gap-3 px-4">
+            <Button
+              variant="primary"
+              loading={isCapturing}
+              disabled={isImporting || isCapturing}
+              onPress={handleTakePhoto}
+            >
+              {isCapturing ? 'SAVING CAPTURE...' : '📷 TAKE SECURE PHOTO'}
+            </Button>
+            <Button
+              variant="secondary"
+              loading={isImporting}
+              disabled={isImporting || isCapturing}
+              onPress={handlePickAndImport}
+            >
+              {isImporting ? 'IMPORTING...' : '+ IMPORT FROM DEVICE'}
+            </Button>
+          </View>
         </Card>
       ) : (
         <FlashList

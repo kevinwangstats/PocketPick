@@ -21,7 +21,7 @@ describe('EncryptedGallery Component', () => {
     jest.clearAllMocks();
   });
 
-  it('renders empty state when there are no photos', async () => {
+  it('renders empty state with both camera and import buttons', async () => {
     const { getByText } = await render(
       <EncryptedGallery
         vaultId="test-vault"
@@ -33,7 +33,45 @@ describe('EncryptedGallery Component', () => {
     );
 
     expect(getByText('GALLERY EMPTY')).toBeTruthy();
-    expect(getByText('SELECT PHOTOS')).toBeTruthy();
+    expect(getByText('📷 TAKE SECURE PHOTO')).toBeTruthy();
+    expect(getByText('+ IMPORT FROM DEVICE')).toBeTruthy();
+  });
+
+  it('renders header with camera and import buttons when photos exist', async () => {
+    const mockPhotos = [
+      {
+        id: 'photo-1',
+        vaultId: 'test-vault',
+        type: 'photo' as const,
+        weight: 1,
+        encryptedFilePath: '/mock/1.enc',
+        fileIv: 'iv1',
+        fileTag: 'tag1',
+        fileHash: 'hash1',
+        encryptedThumbnailPath: '/mock/1_thumb.enc',
+        thumbnailIv: 'tiv1',
+        thumbnailTag: 'ttag1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        encryptedPayload: null,
+        payloadIv: null,
+        payloadTag: null,
+      },
+    ];
+
+    const { getByText } = await render(
+      <EncryptedGallery
+        vaultId="test-vault"
+        vaultKey={mockVaultKey}
+        photos={mockPhotos}
+        onRefresh={onRefreshMock}
+        onDeletePhoto={onDeletePhotoMock}
+      />,
+    );
+
+    expect(getByText('1 ENCRYPTED PHOTOS')).toBeTruthy();
+    expect(getByText('📷 CAMERA')).toBeTruthy();
+    expect(getByText('+ IMPORT')).toBeTruthy();
   });
 
   it('launches picker with allowsMultipleSelection: true and ingests all selected photos', async () => {
@@ -56,7 +94,7 @@ describe('EncryptedGallery Component', () => {
       />,
     );
 
-    const importButton = getByText('SELECT PHOTOS');
+    const importButton = getByText('+ IMPORT FROM DEVICE');
     fireEvent.press(importButton);
 
     await waitFor(() => {
@@ -83,6 +121,100 @@ describe('EncryptedGallery Component', () => {
         mockVaultKey,
       );
       expect(onRefreshMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('requests camera permissions, captures photo, and ingests directly into vault', async () => {
+    (ImagePicker.requestCameraPermissionsAsync as jest.Mock).mockResolvedValueOnce({
+      granted: true,
+    });
+    (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: 'file:///captured_secure_photo.jpg' }],
+    });
+
+    const { getByText } = await render(
+      <EncryptedGallery
+        vaultId="vault-secure"
+        vaultKey={mockVaultKey}
+        photos={[]}
+        onRefresh={onRefreshMock}
+        onDeletePhoto={onDeletePhotoMock}
+      />,
+    );
+
+    const takePhotoButton = getByText('📷 TAKE SECURE PHOTO');
+    fireEvent.press(takePhotoButton);
+
+    await waitFor(() => {
+      expect(ImagePicker.requestCameraPermissionsAsync).toHaveBeenCalledTimes(1);
+      expect(ImagePicker.launchCameraAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mediaTypes: ['images'],
+          quality: 1,
+          allowsEditing: false,
+        }),
+      );
+      expect(imagePipeline.ingestImage).toHaveBeenCalledWith(
+        'file:///captured_secure_photo.jpg',
+        'vault-secure',
+        mockVaultKey,
+      );
+      expect(onRefreshMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('does not launch camera if permission is denied', async () => {
+    (ImagePicker.requestCameraPermissionsAsync as jest.Mock).mockResolvedValueOnce({
+      granted: false,
+    });
+
+    const { getByText } = await render(
+      <EncryptedGallery
+        vaultId="vault-secure"
+        vaultKey={mockVaultKey}
+        photos={[]}
+        onRefresh={onRefreshMock}
+        onDeletePhoto={onDeletePhotoMock}
+      />,
+    );
+
+    const takePhotoButton = getByText('📷 TAKE SECURE PHOTO');
+    fireEvent.press(takePhotoButton);
+
+    await waitFor(() => {
+      expect(ImagePicker.requestCameraPermissionsAsync).toHaveBeenCalledTimes(1);
+      expect(ImagePicker.launchCameraAsync).not.toHaveBeenCalled();
+      expect(imagePipeline.ingestImage).not.toHaveBeenCalled();
+    });
+  });
+
+  it('handles camera cancellation gracefully', async () => {
+    (ImagePicker.requestCameraPermissionsAsync as jest.Mock).mockResolvedValueOnce({
+      granted: true,
+    });
+    (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValueOnce({
+      canceled: true,
+      assets: [],
+    });
+
+    const { getByText } = await render(
+      <EncryptedGallery
+        vaultId="vault-secure"
+        vaultKey={mockVaultKey}
+        photos={[]}
+        onRefresh={onRefreshMock}
+        onDeletePhoto={onDeletePhotoMock}
+      />,
+    );
+
+    const takePhotoButton = getByText('📷 TAKE SECURE PHOTO');
+    fireEvent.press(takePhotoButton);
+
+    await waitFor(() => {
+      expect(ImagePicker.launchCameraAsync).toHaveBeenCalledTimes(1);
+      expect(imagePipeline.ingestImage).not.toHaveBeenCalled();
+      expect(onRefreshMock).not.toHaveBeenCalled();
     });
   });
 });
