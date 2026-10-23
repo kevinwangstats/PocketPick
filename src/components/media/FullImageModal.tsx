@@ -1,4 +1,5 @@
 import { resolveResourcePath } from '../../services/media/pathResolver';
+import { shredFile } from '../../services/media/fileShredder';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -13,6 +14,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Share,
 } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
@@ -47,6 +49,7 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
 
   // Associated text state
   const [associatedText, setAssociatedText] = useState('');
@@ -245,6 +248,71 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
       );
     } finally {
       setIsSuggesting(false);
+    }
+  };
+
+  const handleAirDrop = async () => {
+    if (
+      !resource ||
+      !vaultKey ||
+      !resource.encryptedFilePath ||
+      !resource.fileIv ||
+      !resource.fileTag
+    ) {
+      return;
+    }
+
+    setIsSharing(true);
+    let tempShareUri: string | null = null;
+    try {
+      const resolvedPath = resolveResourcePath(resource.encryptedFilePath);
+      if (!resolvedPath) {
+        throw new Error("Encrypted photo path could not be resolved");
+      }
+
+      const cipherB64 = await FileSystem.readAsStringAsync(resolvedPath, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      const decryptedBuf = decryptBuffer(
+        {
+          ciphertext: cipherB64,
+          iv: resource.fileIv,
+          tag: resource.fileTag,
+        },
+        vaultKey,
+        resource.vaultId,
+      );
+
+      // Create an ephemeral file strictly in cache directory for AirDrop sharing
+      const tempFileName = `pocketpick_airdrop_${Date.now()}.jpg`;
+      tempShareUri = `${FileSystem.cacheDirectory}${tempFileName}`;
+
+      await FileSystem.writeAsStringAsync(tempShareUri, decryptedBuf.toString("base64"), {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+
+      await Share.share(
+        {
+          url: tempShareUri,
+          title: "Share via AirDrop",
+        },
+        {
+          subject: "PocketPick Secure Photo",
+        },
+      );
+    } catch (err: any) {
+      if (err?.message && !err.message.includes("dismissed") && !err.message.includes("canceled")) {
+        Alert.alert("AirDrop Sharing Failed", err.message);
+      }
+    } finally {
+      if (tempShareUri) {
+        // Immediately wipe and unlink unencrypted photo from disk
+        await shredFile(tempShareUri);
+      }
+      setIsSharing(false);
     }
   };
 
@@ -457,7 +525,7 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
               onPress={() => setIsAiModalVisible(true)}
               disabled={!resource}
               style={{
-                paddingHorizontal: 12,
+                paddingHorizontal: 10,
                 paddingVertical: 8,
                 backgroundColor: theme.colors.secondaryButtonBg,
                 borderColor: theme.colors.secondaryButtonBorder,
@@ -474,6 +542,34 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
                 }}
               >
                 {theme.isUppercase ? 'AI ANALYZE' : 'AI Analyze'}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={handleAirDrop}
+              disabled={!resource || isSharing}
+              style={{
+                paddingHorizontal: 10,
+                paddingVertical: 8,
+                backgroundColor: theme.colors.secondaryButtonBg,
+                borderColor: theme.colors.secondaryButtonBorder,
+                borderWidth: 1,
+                borderRadius: theme.borderRadius ? 8 : 0,
+              }}
+            >
+              <Text
+                style={{
+                  color: theme.colors.secondaryButtonText,
+                  fontFamily: theme.isMono ? 'Courier' : undefined,
+                  fontSize: 11,
+                  fontWeight: '600',
+                }}
+              >
+                {isSharing
+                  ? 'SHARING...'
+                  : theme.isUppercase
+                    ? 'AIRDROP'
+                    : 'AirDrop'}
               </Text>
             </Pressable>
 
