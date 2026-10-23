@@ -4,7 +4,7 @@ export type LlmProvider = 'gemini' | 'deepseek' | 'kimi';
 
 export const DEFAULT_LLM_MODELS: Record<LlmProvider, string> = {
   gemini: 'gemini-3.8-flash',
-  deepseek: 'deepseek-v4-flash',
+  deepseek: 'deepseek-chat',
   kimi: 'kimi-k2.6',
 };
 

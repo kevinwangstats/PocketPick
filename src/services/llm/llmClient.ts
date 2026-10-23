@@ -57,7 +57,7 @@ ${request.masterPrompt.trim()}`;
 
   // 15-second timeout controller
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
     let resultText = '';
@@ -107,7 +107,7 @@ ${request.masterPrompt.trim()}`;
                   : []),
                 { role: 'user', content: userMessageContent },
               ],
-              temperature: 0.2,
+              temperature: 1,
             }),
             signal: controller.signal,
           });
@@ -138,6 +138,11 @@ ${request.masterPrompt.trim()}`;
         throw lastError ?? new Error('Kimi API request failed on all Moonshot endpoints');
       }
     } else if (provider === 'deepseek') {
+      if (request.imageBase64) {
+        throw new Error(
+          'DeepSeek is a text-only model and does not support image or photo analysis. Please select Gemini or Kimi in Settings.',
+        );
+      }
       const res = await fetch('https://api.deepseek.com/chat/completions', {
         method: 'POST',
         headers: {

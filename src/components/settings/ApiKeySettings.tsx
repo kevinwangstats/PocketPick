@@ -23,7 +23,7 @@ interface ProviderDef {
 
 const PROVIDERS: ProviderDef[] = [
   { id: 'gemini', label: 'GEMINI', modelLabel: 'gemini 3.8 flash' },
-  { id: 'deepseek', label: 'DEEPSEEK', modelLabel: 'deepseek v4 flash' },
+  { id: 'deepseek', label: 'DEEPSEEK', modelLabel: 'deepseek-chat' },
   { id: 'kimi', label: 'KIMI', modelLabel: 'kimi-k2.6' },
 ];
 

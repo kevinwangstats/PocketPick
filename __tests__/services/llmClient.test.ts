@@ -102,7 +102,7 @@ describe('LLM Client (Gemini, DeepSeek, & Kimi with Quota Guard)', () => {
     expect(response.content).toBe('Fallback CN Output');
   });
 
-  it('enforces monthly quota and queries DeepSeek with deepseek-v4-flash', async () => {
+  it('enforces monthly quota and queries DeepSeek with deepseek-chat', async () => {
     jest.spyOn(llmKeyStore, 'getLlmProvider').mockResolvedValueOnce('deepseek');
     jest.spyOn(llmKeyStore, 'getLlmApiKey').mockResolvedValueOnce('sk-deepseek-1234');
 
@@ -125,8 +125,21 @@ describe('LLM Client (Gemini, DeepSeek, & Kimi with Quota Guard)', () => {
     expect(mockFetch).toHaveBeenCalledTimes(1);
     expect(response.content).toBe('DeepSeek V4 Analysis Output');
     expect(response.provider).toBe('deepseek');
-    expect(response.model).toBe('deepseek-v4-flash');
+    expect(response.model).toBe('deepseek-chat');
     expect(response.quotaUsed).toBe(42);
+  });
+
+  it('rejects image payloads when provider is deepseek', async () => {
+    jest.spyOn(llmKeyStore, 'getLlmProvider').mockResolvedValueOnce('deepseek');
+    jest.spyOn(llmKeyStore, 'getLlmApiKey').mockResolvedValueOnce('sk-deepseek-key');
+    jest.spyOn(quotaManager, 'incrementAndEnforceQuota').mockResolvedValueOnce(45);
+
+    await expect(
+      queryLlm({
+        userPrompt: 'Describe this photo',
+        imageBase64: 'data:image/jpeg;base64,1234',
+      }),
+    ).rejects.toThrow('DeepSeek is a text-only model');
   });
 
   it('queries Gemini with gemini-3.8-flash', async () => {
