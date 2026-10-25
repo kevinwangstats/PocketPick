@@ -105,43 +105,48 @@
 
 ## 4. LLM Configuration & Vault Intelligence
 
-### US-007: Vault-Level LLM Master Prompt
+### US-007: Vault-Level LLM Master Prompt (Authoritative System Injection)
 
-- **User Request:** _"Each vault should have a vault-level LLM master prompt which is appended whenever a prompt is made."_
+- **User Request:** _"Each vault should have a vault-level LLM master prompt which is appended whenever a prompt is made."_ and _"You must reassess how the master prompt for each vault is done too, because I noticed that my master prompt did not modify the behaviour of the output correctly, so fix that bug too as we build."_
 - **User Story:**
   - _As a_ user configuring a vault for a specific domain (e.g., receipts, medical records, task lists),
-  - _I want_ to set a vault-level LLM master prompt that automatically appends to every query made in that vault,
-  - _So that_ all OCR analyses, summaries, and text suggestions adhere to the vault's specific context and formatting guidelines.
+  - _I want_ my vault-level LLM master prompt to be enforced as an authoritative system directive across all AI operations in that vault,
+  - _So that_ AI photo analysis, summaries, and OCR queries strictly adhere to the vault's custom formatting rules, constraints, and tone without being overridden by default prompts.
 - **Acceptance Criteria:**
-  - Each vault row stores an optional `llm_master_prompt` in SQLite.
-  - The vault detail header includes a **`[ MASTER PROMPT ]`** button opening `VaultMasterPromptModal`.
-  - Users can choose from presets (_Concise Bullets_, _Finance & Receipts_, _Document Archive_, _Technical/Dev_) or type custom instructions.
-  - When any LLM query is executed within the vault (in `FullImageModal` or `LlmAnalysisModal`), the vault's master prompt is appended to the prompt payload:
+  - **Database Persistence:** Each vault row stores an optional `llm_master_prompt` in SQLite.
+  - **Configuration Modal:** The vault detail header includes a **`[ MASTER PROMPT ]`** button opening `VaultMasterPromptModal` with presets (_Concise Bullets_, _Finance & Receipts_, _Document Archive_, _Technical/Dev_) and custom text entry.
+  - **Authoritative System Role Injection:** In `llmClient.ts`, `masterPrompt` is injected into the top-priority `system` message rather than appended as passive user text:
     ```text
-    [User Prompt / Analysis Request]
-
-    [Vault Master Prompt]:
+    === VAULT MASTER DIRECTIVES (HIGHEST PRIORITY) ===
+    The user has established the following master directives for all operations in this vault.
+    You MUST strictly follow these rules, persona, formatting constraints, and domain guidelines above any generic output structure:
+    """
     <Vault-specific instructions>
+    """
+    =================================================
     ```
+  - **Adaptive Consumer Prompts:** In `FullImageModal` and `LlmAnalysisModal`, prompt templates defer to the active master prompt directives so hardcoded output structures do not conflict with or suppress user instructions.
+  - **Visual Status Indicator:** An active badge indicator (`MASTER PROMPT ACTIVE`) appears in AI photo analysis views when a vault has an active master prompt.
 
-### US-008: Multi-Provider LLM Configuration (Gemini, DeepSeek, & Kimi)
+### US-008: Unified OpenRouter.ai Gateway with Dynamic Model Selection
 
-- **User Request:** _"The app should be able to hold multiple api keys, one for each of the LLM providers. I also want to add another one for kimi, with the default to kimi-k2.6 model."_
+- **User Request:** _"I want to use openrouter.ai then. Let's start coding. You may remove the current three providers and only open one field for open router."_
 - **User Story:**
   - _As a_ user configuring AI intelligence providers in the System settings tab,
-  - _I want_ the app to store separate API keys for each supported LLM provider (Gemini, DeepSeek, and Kimi) and allow instant switching between them,
-  - _So that_ I can seamlessly switch providers without re-entering my API keys, and leverage Kimi with its default `kimi-k2.6` model.
+  - _I want_ to store a single OpenRouter API key and freely switch between any foundation model (Gemini, DeepSeek, Kimi, etc.) via a unified gateway,
+  - _So that_ I do not have to manage multiple accounts or separate balances across individual providers.
 - **Acceptance Criteria:**
-  - **Multi-Key Isolation:** Stored in hardware-backed iOS Keychain (`SecureStore`) using independent, isolated keys per provider (`POCKETPICK_LLM_API_KEY_gemini`, `POCKETPICK_LLM_API_KEY_deepseek`, `POCKETPICK_LLM_API_KEY_kimi`).
-  - **Supported Providers & Default Models:**
-    1. **`GEMINI`** — Default model: `gemini-3.8-flash`.
-    2. **`DEEPSEEK`** — Default model: `deepseek-v4-flash`.
-    3. **`KIMI`** — Default model: `kimi-k2.6`.
-  - **Provider Indicator:** The System tab (`ApiKeySettings`) displays indicators showing which providers currently have keys saved, allowing individual key updates or deletion per provider.
-  - **Network Endpoints:** Outgoing LLM requests in `llmClient.ts` route to the corresponding provider endpoints:
-    - Gemini: `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`
-    - DeepSeek: `https://api.deepseek.com/chat/completions` (OpenAI-compatible protocol with model `deepseek-v4-flash`).
-    - Kimi: `https://api.moonshot.cn/v1/chat/completions` (OpenAI-compatible protocol with model `kimi-k2.6`).
+  - **Single Keychain Secret:** Stored in hardware-backed iOS Keychain (`SecureStore`) under `POCKETPICK_OPENROUTER_API_KEY`.
+  - **Unified Endpoint:** All outgoing LLM queries route through OpenRouter's OpenAI-compatible completions endpoint: `https://openrouter.ai/api/v1/chat/completions`.
+  - **Dynamic Model Selection:** Stored in `POCKETPICK_OPENROUTER_MODEL` (defaulting to `google/gemini-2.5-flash`), with 1-tap presets for:
+    1. **Gemini 2.5 Flash** (`google/gemini-2.5-flash`) — Multimodal vision default.
+    2. **DeepSeek V3** (`deepseek/deepseek-chat`) — High-efficiency text & reasoning.
+    3. **DeepSeek R1** (`deepseek/deepseek-r1`) — Deep reasoning.
+    4. **Kimi K2.6** (`moonshotai/kimi-k2.6`) — Multimodal long-context reasoning.
+    5. **Custom Model ID** — Direct input for any OpenRouter-cataloged model.
+  - **Settings UI (`ApiKeySettings`):** Displays a streamlined single OpenRouter key input with status masking, deletion option, and one-tap model chips.
+  - **Multimodal Support:** Base64 photo payloads are passed via standard OpenAI `image_url` format supported natively by OpenRouter vision models.
+  - **Cost & Quota Protection:** Maintains the 100-request monthly transactional quota barrier before dispatching to OpenRouter.
 
 ---
 
