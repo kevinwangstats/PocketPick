@@ -6,12 +6,11 @@ import QuickCrypto from 'react-native-quick-crypto';
 import { getDatabase } from '@/db/client';
 
 jest.mock('@/services/llm/llmKeyStore', () => ({
-  getLlmApiKey: jest.fn(async () => 'sk-test-key-12345'),
-  getLlmProvider: jest.fn(async () => 'deepseek'),
-  DEFAULT_LLM_MODELS: {
-    gemini: 'gemini-3.8-flash',
-    deepseek: 'deepseek-v4-flash',
-  },
+  getOpenRouterApiKey: jest.fn(async () => 'sk-or-v1-testkey1234'),
+  getOpenRouterModel: jest.fn(async () => 'google/gemini-2.5-flash'),
+  DEFAULT_OPENROUTER_MODEL: 'google/gemini-2.5-flash',
+  getLlmApiKey: jest.fn(async () => 'sk-or-v1-testkey1234'),
+  getLlmProvider: jest.fn(async () => 'openrouter'),
 }));
 
 describe('Photo Text Association & Vault Master Prompt (TDD)', () => {
@@ -115,8 +114,8 @@ describe('Photo Text Association & Vault Master Prompt (TDD)', () => {
     });
   });
 
-  describe('LLM Client Master Prompt Appending', () => {
-    it('appends vault-level master prompt to prompt payload', async () => {
+  describe('LLM Client Master Prompt Injection', () => {
+    it('injects vault-level master prompt into authoritative system message', async () => {
       const originalFetch = (globalThis as any).fetch;
       let capturedBody: any = null;
 
@@ -142,11 +141,15 @@ describe('Photo Text Association & Vault Master Prompt (TDD)', () => {
         expect(result.content).toBe('Mocked LLM Response');
         expect(capturedBody).toBeDefined();
 
-        // The user message must contain the appended vault master prompt
+        // The system message must contain the authoritative vault master directives
+        const systemContent = capturedBody.messages.find((m: any) => m.role === 'system')?.content;
+        expect(systemContent).toContain('=== VAULT MASTER DIRECTIVES (HIGHEST PRIORITY) ===');
+        expect(systemContent).toContain('Format with strict monochrome tokens.');
+
+        // The user message contains the user prompt and context
         const userContent = capturedBody.messages.find((m: any) => m.role === 'user')?.content;
         expect(userContent).toContain('Extract receipt totals:');
-        expect(userContent).toContain('[Vault Master Prompt]:');
-        expect(userContent).toContain('Format with strict monochrome tokens.');
+        expect(userContent).toContain('Store: TechCorp, Total: $199.00');
       } finally {
         (globalThis as any).fetch = originalFetch;
       }

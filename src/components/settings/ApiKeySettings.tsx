@@ -2,188 +2,111 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Pressable, Alert, Text } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
-  getLlmApiKey,
-  setLlmApiKey,
-  removeLlmApiKey,
-  getLlmProvider,
-  setLlmProvider,
-  getAllConfiguredProviderKeys,
-  LlmProvider,
-  DEFAULT_LLM_MODELS,
+  getOpenRouterApiKey,
+  setOpenRouterApiKey,
+  removeOpenRouterApiKey,
+  getOpenRouterModel,
+  setOpenRouterModel,
+  OPENROUTER_MODEL_PRESETS,
+  DEFAULT_OPENROUTER_MODEL,
   maskApiKey,
 } from '../../services/llm/llmKeyStore';
 import { Card, H2, Label, Body, Mono, Input, Button } from '../ui';
 import { useTheme } from '../../theme';
 
-interface ProviderDef {
-  id: LlmProvider;
-  label: string;
-  modelLabel: string;
-}
-
-const PROVIDERS: ProviderDef[] = [
-  { id: 'gemini', label: 'GEMINI', modelLabel: 'gemini 3.8 flash' },
-  { id: 'deepseek', label: 'DEEPSEEK', modelLabel: 'deepseek-chat' },
-  { id: 'kimi', label: 'KIMI', modelLabel: 'kimi-k2.6' },
-];
-
 export function ApiKeySettings() {
   const { theme } = useTheme();
-  const [selectedProvider, setSelectedProvider] = useState<LlmProvider>('gemini');
   const [currentKey, setCurrentKey] = useState<string | null>(null);
   const [inputKey, setInputKey] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [configuredMap, setConfiguredMap] = useState<Record<LlmProvider, boolean>>({
-    gemini: false,
-    deepseek: false,
-    kimi: false,
-  });
+  const [activeModel, setActiveModel] = useState<string>(DEFAULT_OPENROUTER_MODEL);
+  const [customModelInput, setCustomModelInput] = useState('');
+  const [isSavingKey, setIsSavingKey] = useState(false);
+  const [isSavingModel, setIsSavingModel] = useState(false);
 
-  const loadSettings = useCallback(async (targetProvider?: LlmProvider) => {
-    const activeProv = targetProvider ?? (await getLlmProvider());
-    setSelectedProvider(activeProv);
-    const key = await getLlmApiKey(activeProv);
+  const loadSettings = useCallback(async () => {
+    const key = await getOpenRouterApiKey();
     setCurrentKey(key);
-    const configured = await getAllConfiguredProviderKeys();
-    setConfiguredMap(configured);
+    const model = await getOpenRouterModel();
+    setActiveModel(model);
   }, []);
 
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
 
-  const handleSelectProvider = async (p: LlmProvider) => {
-    Haptics.selectionAsync().catch(() => {});
-    setSelectedProvider(p);
-    await setLlmProvider(p);
-    setInputKey('');
-    const key = await getLlmApiKey(p);
-    setCurrentKey(key);
-  };
-
-  const handleSave = async () => {
+  const handleSaveKey = async () => {
     if (!inputKey.trim()) return;
-    setIsSaving(true);
+    setIsSavingKey(true);
     try {
-      await setLlmApiKey(inputKey, selectedProvider);
-      await setLlmProvider(selectedProvider);
+      await setOpenRouterApiKey(inputKey);
       setInputKey('');
-      await loadSettings(selectedProvider);
+      await loadSettings();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      Alert.alert(
-        'Saved',
-        `${selectedProvider.toUpperCase()} API key securely stored in iOS Keychain.`,
-      );
+      Alert.alert('Saved', 'OpenRouter API key securely stored in iOS Keychain.');
     } catch (err: unknown) {
       Alert.alert('Error', err instanceof Error ? err.message : 'Failed to save key');
     } finally {
-      setIsSaving(false);
+      setIsSavingKey(false);
     }
   };
 
-  const handleRemove = async () => {
+  const handleRemoveKey = async () => {
     Alert.alert(
-      `Remove ${selectedProvider.toUpperCase()} Key`,
-      `Are you sure you want to delete your stored API key for ${selectedProvider.toUpperCase()}?`,
+      'Remove OpenRouter Key',
+      'Are you sure you want to delete your stored OpenRouter API key from iOS Keychain?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            await removeLlmApiKey(selectedProvider);
-            await loadSettings(selectedProvider);
+            await removeOpenRouterApiKey();
+            await loadSettings();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
           },
         },
       ],
     );
   };
 
+  const handleSelectModelPreset = async (modelId: string) => {
+    Haptics.selectionAsync().catch(() => {});
+    setActiveModel(modelId);
+    setCustomModelInput('');
+    try {
+      await setOpenRouterModel(modelId);
+    } catch (err: unknown) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to update model');
+    }
+  };
+
+  const handleSaveCustomModel = async () => {
+    const trimmed = customModelInput.trim();
+    if (!trimmed) return;
+    setIsSavingModel(true);
+    try {
+      await setOpenRouterModel(trimmed);
+      setActiveModel(trimmed);
+      setCustomModelInput('');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Alert.alert('Model Updated', `Active OpenRouter model set to: ${trimmed}`);
+    } catch (err: unknown) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to set custom model');
+    } finally {
+      setIsSavingModel(false);
+    }
+  };
+
   return (
     <Card className="p-5 mb-6">
-      <H2 className="mb-1">LLM CONFIGURATION</H2>
+      <H2 className="mb-1">OPENROUTER GATEWAY</H2>
       <Body className="text-xs mb-4">
-        Hold separate API keys for Gemini, DeepSeek, and Kimi. Keys are isolated in hardware-backed
-        iOS Keychain.
+        Access Gemini, DeepSeek, Kimi, and 400+ models via a single API key and unified wallet on
+        openrouter.ai. Stored in hardware-backed iOS Keychain.
       </Body>
 
-      <Label className="mb-2">PROVIDER & ACTIVE MODEL</Label>
-      <View className="flex-row gap-2 mb-4">
-        {PROVIDERS.map((p) => {
-          const isSelected = selectedProvider === p.id;
-          const isConfigured = configuredMap[p.id];
-
-          return (
-            <Pressable
-              key={p.id}
-              onPress={() => handleSelectProvider(p.id)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: isSelected }}
-              style={{
-                borderRadius: theme.borderRadius ? 10 : 0,
-                borderWidth: isSelected ? 2 : 1,
-                borderColor: isSelected ? theme.colors.accent : theme.colors.cardBorder,
-                backgroundColor: isSelected ? theme.colors.badgeBg : theme.colors.card,
-                paddingVertical: 10,
-                paddingHorizontal: 8,
-              }}
-              className="flex-1 items-center active:opacity-85"
-            >
-              <View className="flex-row items-center gap-1">
-                <Text
-                  style={{
-                    color: isSelected ? theme.colors.accent : theme.colors.textPrimary,
-                    fontWeight: isSelected ? '700' : '600',
-                    fontSize: 12,
-                    fontFamily: theme.isMono ? 'Courier' : undefined,
-                    letterSpacing: theme.isUppercase ? 1 : 0.2,
-                  }}
-                >
-                  {p.label}
-                </Text>
-                {isConfigured && (
-                  <View
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: 3,
-                      backgroundColor: '#10B981',
-                    }}
-                  />
-                )}
-              </View>
-              <Text
-                style={{
-                  color: theme.colors.textMuted,
-                  fontSize: 10,
-                  marginTop: 3,
-                  fontFamily: theme.isMono ? 'Courier' : undefined,
-                }}
-              >
-                {p.modelLabel}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <View
-        style={{
-          backgroundColor: theme.isDark ? '#000000' : theme.colors.background,
-          borderColor: theme.colors.cardBorder,
-          borderWidth: 1,
-          borderRadius: theme.borderRadius ? 8 : 0,
-          padding: 10,
-        }}
-        className="mb-4"
-      >
-        <Label className="text-[10px]">ACTIVE MODEL ENDPOINT</Label>
-        <Mono className="text-xs mt-0.5">
-          {selectedProvider}: {DEFAULT_LLM_MODELS[selectedProvider]}
-        </Mono>
-      </View>
-
-      <Label className="mb-2">{selectedProvider.toUpperCase()} KEY STATUS</Label>
+      {/* Key Status */}
+      <Label className="mb-2">OPENROUTER KEY STATUS</Label>
       <View
         style={{
           backgroundColor: theme.isDark ? '#000000' : theme.colors.background,
@@ -194,30 +117,145 @@ export function ApiKeySettings() {
         }}
         className="mb-4 flex-row justify-between items-center"
       >
-        <Mono className="text-xs">
-          {currentKey
-            ? maskApiKey(currentKey)
-            : `NO ${selectedProvider.toUpperCase()} KEY CONFIGURED`}
-        </Mono>
+        <View className="flex-row items-center gap-2 flex-1 mr-2">
+          {currentKey && (
+            <View
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: '#10B981',
+              }}
+            />
+          )}
+          <Mono className="text-xs">
+            {currentKey ? maskApiKey(currentKey) : 'NO OPENROUTER KEY CONFIGURED'}
+          </Mono>
+        </View>
         {currentKey && (
-          <Button variant="destructive" className="h-7 px-2" onPress={handleRemove}>
+          <Button variant="destructive" className="h-7 px-2" onPress={handleRemoveKey}>
             DELETE
           </Button>
         )}
       </View>
 
-      <Label className="mb-2">UPDATE {selectedProvider.toUpperCase()} KEY</Label>
+      {/* Update Key Input */}
+      <Label className="mb-2">UPDATE OPENROUTER KEY</Label>
       <Input
         value={inputKey}
         onChangeText={setInputKey}
-        placeholder={`Paste ${selectedProvider.toUpperCase()} API key`}
+        placeholder="sk-or-v1-..."
         secureTextEntry
-        className="mb-4"
+        className="mb-3"
       />
 
-      <Button variant="primary" disabled={!inputKey.trim()} loading={isSaving} onPress={handleSave}>
-        {`SAVE ${selectedProvider.toUpperCase()} KEY TO KEYCHAIN`}
+      <Button
+        variant="primary"
+        disabled={!inputKey.trim()}
+        loading={isSavingKey}
+        onPress={handleSaveKey}
+        className="mb-6"
+      >
+        SAVE OPENROUTER KEY TO KEYCHAIN
       </Button>
+
+      {/* Model Selection */}
+      <Label className="mb-2">ACTIVE MODEL SELECTION</Label>
+      <View className="flex-row flex-wrap gap-2 mb-3">
+        {OPENROUTER_MODEL_PRESETS.map((preset) => {
+          const isSelected = activeModel === preset.id;
+
+          return (
+            <Pressable
+              key={preset.id}
+              onPress={() => handleSelectModelPreset(preset.id)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
+              style={{
+                borderRadius: theme.borderRadius ? 8 : 0,
+                borderWidth: isSelected ? 2 : 1,
+                borderColor: isSelected ? theme.colors.accent : theme.colors.cardBorder,
+                backgroundColor: isSelected ? theme.colors.badgeBg : theme.colors.card,
+                paddingVertical: 8,
+                paddingHorizontal: 10,
+              }}
+              className="flex-1 min-w-[45%] active:opacity-85"
+            >
+              <View className="flex-row items-center justify-between">
+                <Text
+                  style={{
+                    color: isSelected ? theme.colors.accent : theme.colors.textPrimary,
+                    fontWeight: isSelected ? '700' : '600',
+                    fontSize: 11,
+                    fontFamily: theme.isMono ? 'Courier' : undefined,
+                    letterSpacing: theme.isUppercase ? 1 : 0.2,
+                  }}
+                >
+                  {preset.label}
+                </Text>
+                {preset.multimodal && (
+                  <Text
+                    style={{
+                      color: theme.colors.textMuted,
+                      fontSize: 9,
+                      fontFamily: theme.isMono ? 'Courier' : undefined,
+                    }}
+                  >
+                    VISION
+                  </Text>
+                )}
+              </View>
+              <Text
+                style={{
+                  color: theme.colors.textMuted,
+                  fontSize: 10,
+                  marginTop: 2,
+                  fontFamily: theme.isMono ? 'Courier' : undefined,
+                }}
+              >
+                {preset.description}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* Active Model Endpoint Bar */}
+      <View
+        style={{
+          backgroundColor: theme.isDark ? '#000000' : theme.colors.background,
+          borderColor: theme.colors.cardBorder,
+          borderWidth: 1,
+          borderRadius: theme.borderRadius ? 8 : 0,
+          padding: 10,
+        }}
+        className="mb-4"
+      >
+        <Label className="text-[10px]">CURRENT TARGET ENDPOINT</Label>
+        <Mono className="text-xs mt-0.5">openrouter: {activeModel}</Mono>
+      </View>
+
+      {/* Custom Model ID Entry */}
+      <Label className="mb-2">OR SPECIFY CUSTOM OPENROUTER MODEL</Label>
+      <View className="flex-row gap-2">
+        <View className="flex-1">
+          <Input
+            value={customModelInput}
+            onChangeText={setCustomModelInput}
+            placeholder="e.g. anthropic/claude-3.5-sonnet"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
+        <Button
+          variant="secondary"
+          disabled={!customModelInput.trim()}
+          loading={isSavingModel}
+          onPress={handleSaveCustomModel}
+        >
+          SET
+        </Button>
+      </View>
     </Card>
   );
 }

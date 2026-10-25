@@ -1,4 +1,4 @@
-import { getLlmApiKey, getLlmProvider, LlmProvider, DEFAULT_LLM_MODELS } from './llmKeyStore';
+import { getOpenRouterApiKey, getOpenRouterModel, DEFAULT_OPENROUTER_MODEL } from './llmKeyStore';
 import { incrementAndEnforceQuota } from '../quota/quotaManager';
 
 export interface LlmAnalysisRequest {
@@ -12,202 +12,124 @@ export interface LlmAnalysisRequest {
 
 export interface LlmAnalysisResponse {
   content: string;
-  provider: LlmProvider;
+  provider: 'openrouter';
   model: string;
   quotaUsed: number;
 }
 
 /**
- * Sends a query to the configured LLM provider (gemini, deepseek, or kimi).
- * Defaults to:
- * - Gemini: gemini-3.8-flash (multimodal vision support)
- * - DeepSeek: deepseek-v4-flash
- * - Kimi: kimi-k2.6 (multimodal vision support)
- * Strictly enforces monthly quota guard before sending network request.
- * Appends the vault-level master prompt whenever present.
+ * Builds authoritative system instructions by placing the Vault Master Prompt
+ * at the highest priority level in the system prompt hierarchy.
  */
-export async function queryLlm(request: LlmAnalysisRequest): Promise<LlmAnalysisResponse> {
-  const provider = await getLlmProvider();
-  const apiKey = await getLlmApiKey(provider);
-  if (!apiKey) {
-    throw new Error(
-      `No LLM API key configured for ${provider.toUpperCase()}. Please add an API key in Settings.`,
+export function buildSystemInstructions(masterPrompt?: string, systemPrompt?: string): string {
+  const sections: string[] = [];
+
+  if (masterPrompt && masterPrompt.trim().length > 0) {
+    sections.push(
+      `=== VAULT MASTER DIRECTIVES (HIGHEST PRIORITY) ===\n` +
+        `The user has configured the following permanent directives for all operations inside this vault.\n` +
+        `You MUST strictly adhere to these instructions, styling, format constraints, and domain requirements above any default response pattern:\n\n` +
+        `"""\n${masterPrompt.trim()}\n"""\n` +
+        `=================================================`,
     );
   }
 
-  const modelToUse = request.model ?? DEFAULT_LLM_MODELS[provider];
+  if (systemPrompt && systemPrompt.trim().length > 0) {
+    sections.push(systemPrompt.trim());
+  } else if (!masterPrompt || masterPrompt.trim().length === 0) {
+    sections.push(
+      'You are an AI assistant inside PocketPick, a high-security encrypted mobile vault application. Provide clear, accurate, and structured responses.',
+    );
+  }
+
+  return sections.join('\n\n');
+}
+
+/**
+ * Sends a query to the configured model via the unified OpenRouter.ai API gateway.
+ * Allows using any model (e.g. Gemini 2.5 Flash, DeepSeek V3/R1, Kimi K2.6) with a single API key.
+ * Strictly enforces monthly quota guard before sending network requests.
+ * Injects vault-level master prompts into the authoritative system instruction.
+ */
+export async function queryLlm(request: LlmAnalysisRequest): Promise<LlmAnalysisResponse> {
+  const apiKey = await getOpenRouterApiKey();
+  if (!apiKey) {
+    throw new Error(
+      'No OpenRouter API key configured. Please add an OpenRouter API key in Settings.',
+    );
+  }
+
+  const modelToUse = request.model ?? (await getOpenRouterModel()) ?? DEFAULT_OPENROUTER_MODEL;
 
   // Enforce monthly quota barrier FIRST. Throws QuotaExceededError if limit reached.
   const quotaUsed = await incrementAndEnforceQuota();
 
-  let fullPrompt = request.userPrompt;
+  let userText = request.userPrompt;
   if (request.contextText && request.contextText.trim().length > 0) {
-    fullPrompt = `${fullPrompt}
-
----
-${request.contextText.trim()}`;
+    userText = `${userText}\n\n---\n${request.contextText.trim()}`;
   }
 
-  if (request.masterPrompt && request.masterPrompt.trim().length > 0) {
-    fullPrompt = `${fullPrompt}
+  // Construct message content (text or multimodal OpenAI-compatible image_url)
+  type MessageContent =
+    | string
+    | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }>;
 
-[Vault Master Prompt]:
-${request.masterPrompt.trim()}`;
+  let userMessageContent: MessageContent = userText;
+  if (request.imageBase64) {
+    const imageUrl = request.imageBase64.startsWith('data:')
+      ? request.imageBase64
+      : `data:image/jpeg;base64,${request.imageBase64}`;
+
+    userMessageContent = [
+      { type: 'text', text: userText },
+      {
+        type: 'image_url',
+        image_url: {
+          url: imageUrl,
+        },
+      },
+    ];
   }
 
-  // 15-second timeout controller
+  const systemInstruction = buildSystemInstructions(request.masterPrompt, request.systemPrompt);
+
+  const messages: Array<{ role: 'system' | 'user'; content: MessageContent }> = [
+    { role: 'system', content: systemInstruction },
+    { role: 'user', content: userMessageContent },
+  ];
+
+  // 30-second timeout controller
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
-    let resultText = '';
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://pocketpick.app',
+        'X-Title': 'PocketPick',
+      },
+      body: JSON.stringify({
+        model: modelToUse,
+        messages,
+        temperature: 0.3,
+      }),
+      signal: controller.signal,
+    });
 
-    if (provider === 'kimi') {
-      // Moonshot operates dual endpoints: api.moonshot.ai (global/open platform) and api.moonshot.cn (domestic CN).
-      // Query api.moonshot.ai first, falling back to api.moonshot.cn if 401 authentication failure occurs.
-      const endpoints = [
-        'https://api.moonshot.ai/v1/chat/completions',
-        'https://api.moonshot.cn/v1/chat/completions',
-      ];
-
-      let lastError: Error | null = null;
-      let succeeded = false;
-
-      // Construct multimodal message content if image is provided
-      let userMessageContent: any = fullPrompt;
-      if (request.imageBase64) {
-        const imageUrl = request.imageBase64.startsWith('data:')
-          ? request.imageBase64
-          : `data:image/jpeg;base64,${request.imageBase64}`;
-
-        userMessageContent = [
-          { type: 'text', text: fullPrompt },
-          {
-            type: 'image_url',
-            image_url: {
-              url: imageUrl,
-            },
-          },
-        ];
-      }
-
-      for (const endpoint of endpoints) {
-        try {
-          const res = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-              model: modelToUse,
-              messages: [
-                ...(request.systemPrompt
-                  ? [{ role: 'system', content: request.systemPrompt }]
-                  : []),
-                { role: 'user', content: userMessageContent },
-              ],
-              temperature: 1,
-            }),
-            signal: controller.signal,
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            resultText = data.choices?.[0]?.message?.content ?? '';
-            succeeded = true;
-            break;
-          }
-
-          const errorBody = await res.text();
-          lastError = new Error(`Kimi API error (${res.status}): ${errorBody}`);
-
-          // If error is not 401 authentication, or this is the last endpoint, fail fast
-          if (res.status !== 401) {
-            throw lastError;
-          }
-        } catch (err) {
-          lastError = err as Error;
-          if (controller.signal.aborted) {
-            throw err;
-          }
-        }
-      }
-
-      if (!succeeded) {
-        throw lastError ?? new Error('Kimi API request failed on all Moonshot endpoints');
-      }
-    } else if (provider === 'deepseek') {
-      if (request.imageBase64) {
-        throw new Error(
-          'DeepSeek is a text-only model and does not support image or photo analysis. Please select Gemini or Kimi in Settings.',
-        );
-      }
-      const res = await fetch('https://api.deepseek.com/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: modelToUse,
-          messages: [
-            ...(request.systemPrompt ? [{ role: 'system', content: request.systemPrompt }] : []),
-            { role: 'user', content: fullPrompt },
-          ],
-          temperature: 0.2,
-        }),
-        signal: controller.signal,
-      });
-
-      if (!res.ok) {
-        const errorBody = await res.text();
-        throw new Error(`DeepSeek API error (${res.status}): ${errorBody}`);
-      }
-
-      const data = await res.json();
-      resultText = data.choices?.[0]?.message?.content ?? '';
-    } else if (provider === 'gemini') {
-      const parts: any[] = [{ text: fullPrompt }];
-      if (request.imageBase64) {
-        const cleanBase64 = request.imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
-        parts.push({
-          inline_data: {
-            mime_type: 'image/jpeg',
-            data: cleanBase64,
-          },
-        });
-      }
-
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${modelToUse}:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            contents: [{ parts }],
-            ...(request.systemPrompt
-              ? { system_instruction: { parts: [{ text: request.systemPrompt }] } }
-              : {}),
-          }),
-          signal: controller.signal,
-        },
-      );
-
-      if (!res.ok) {
-        const errorBody = await res.text();
-        throw new Error(`Gemini API error (${res.status}): ${errorBody}`);
-      }
-
-      const data = await res.json();
-      resultText = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    if (!res.ok) {
+      const errorBody = await res.text();
+      throw new Error(`OpenRouter API error (${res.status}): ${errorBody}`);
     }
+
+    const data = await res.json();
+    const resultText = data.choices?.[0]?.message?.content ?? '';
 
     return {
       content: resultText.trim(),
-      provider,
+      provider: 'openrouter',
       model: modelToUse,
       quotaUsed,
     };

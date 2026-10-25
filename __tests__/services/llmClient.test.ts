@@ -1,9 +1,9 @@
-import { queryLlm } from '../../src/services/llm/llmClient';
+import { queryLlm, buildSystemInstructions } from '../../src/services/llm/llmClient';
 import * as llmKeyStore from '../../src/services/llm/llmKeyStore';
 import * as quotaManager from '../../src/services/quota/quotaManager';
 import * as SecureStore from 'expo-secure-store';
 
-describe('LLM Client (Gemini, DeepSeek, & Kimi with Quota Guard)', () => {
+describe('LLM Client (OpenRouter.ai Unified Gateway & Authoritative Master Prompt)', () => {
   const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
@@ -14,28 +14,37 @@ describe('LLM Client (Gemini, DeepSeek, & Kimi with Quota Guard)', () => {
     globalThis.fetch = originalFetch;
   });
 
-  it('throws an error if no API key is set for active provider', async () => {
-    jest.spyOn(llmKeyStore, 'getLlmProvider').mockResolvedValueOnce('gemini');
-    jest.spyOn(llmKeyStore, 'getLlmApiKey').mockResolvedValueOnce(null);
+  it('builds system instructions with vault master directives having highest priority', () => {
+    const instructions = buildSystemInstructions(
+      'Format in uppercase JSON only.',
+      'You are a receipt extractor.',
+    );
+    expect(instructions).toContain('=== VAULT MASTER DIRECTIVES (HIGHEST PRIORITY) ===');
+    expect(instructions).toContain('Format in uppercase JSON only.');
+    expect(instructions).toContain('You are a receipt extractor.');
+  });
+
+  it('throws an error if no OpenRouter API key is configured', async () => {
+    jest.spyOn(llmKeyStore, 'getOpenRouterApiKey').mockResolvedValueOnce(null);
 
     await expect(
       queryLlm({
         userPrompt: 'Test prompt',
         contextText: 'Test context',
       }),
-    ).rejects.toThrow('No LLM API key configured for GEMINI');
+    ).rejects.toThrow('No OpenRouter API key configured');
   });
 
-  it('queries Kimi with default kimi-k2.6 model', async () => {
-    jest.spyOn(llmKeyStore, 'getLlmProvider').mockResolvedValueOnce('kimi');
-    jest.spyOn(llmKeyStore, 'getLlmApiKey').mockResolvedValueOnce('sk-kimi-token');
+  it('queries OpenRouter with default model and standard headers', async () => {
+    jest.spyOn(llmKeyStore, 'getOpenRouterApiKey').mockResolvedValueOnce('sk-or-v1-testkey1234');
+    jest.spyOn(llmKeyStore, 'getOpenRouterModel').mockResolvedValueOnce('google/gemini-2.5-flash');
 
-    const quotaSpy = jest.spyOn(quotaManager, 'incrementAndEnforceQuota').mockResolvedValueOnce(15);
+    const quotaSpy = jest.spyOn(quotaManager, 'incrementAndEnforceQuota').mockResolvedValueOnce(12);
 
     const mockFetch = jest.fn().mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        choices: [{ message: { content: 'Kimi K2.6 Analysis Output' } }],
+        choices: [{ message: { content: 'Gemini 2.5 Flash Output via OpenRouter' } }],
       }),
     });
     globalThis.fetch = mockFetch as unknown as typeof fetch;
@@ -47,174 +56,142 @@ describe('LLM Client (Gemini, DeepSeek, & Kimi with Quota Guard)', () => {
 
     expect(quotaSpy).toHaveBeenCalledTimes(1);
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://api.moonshot.ai/v1/chat/completions',
+      'https://openrouter.ai/api/v1/chat/completions',
       expect.objectContaining({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: 'Bearer sk-kimi-token',
+          Authorization: 'Bearer sk-or-v1-testkey1234',
+          'HTTP-Referer': 'https://pocketpick.app',
+          'X-Title': 'PocketPick',
         },
-        body: expect.stringContaining('"model":"kimi-k2.6"'),
+        body: expect.stringContaining('"model":"google/gemini-2.5-flash"'),
       }),
     );
-    expect(response.content).toBe('Kimi K2.6 Analysis Output');
-    expect(response.provider).toBe('kimi');
-    expect(response.model).toBe('kimi-k2.6');
-    expect(response.quotaUsed).toBe(15);
+    expect(response.content).toBe('Gemini 2.5 Flash Output via OpenRouter');
+    expect(response.provider).toBe('openrouter');
+    expect(response.model).toBe('google/gemini-2.5-flash');
+    expect(response.quotaUsed).toBe(12);
   });
 
-  it('falls back to api.moonshot.cn if api.moonshot.ai returns 401', async () => {
-    jest.spyOn(llmKeyStore, 'getLlmProvider').mockResolvedValueOnce('kimi');
-    jest.spyOn(llmKeyStore, 'getLlmApiKey').mockResolvedValueOnce('sk-cn-token');
-    jest.spyOn(quotaManager, 'incrementAndEnforceQuota').mockResolvedValueOnce(16);
-
-    const mockFetch = jest
-      .fn()
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        text: async () => JSON.stringify({ error: { message: 'Invalid Authentication' } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          choices: [{ message: { content: 'Fallback CN Output' } }],
-        }),
-      });
-    globalThis.fetch = mockFetch as unknown as typeof fetch;
-
-    const response = await queryLlm({
-      userPrompt: 'Test CN Fallback',
-      contextText: 'Context',
-    });
-
-    expect(mockFetch).toHaveBeenCalledTimes(2);
-    expect(mockFetch).toHaveBeenNthCalledWith(
-      1,
-      'https://api.moonshot.ai/v1/chat/completions',
-      expect.anything(),
-    );
-    expect(mockFetch).toHaveBeenNthCalledWith(
-      2,
-      'https://api.moonshot.cn/v1/chat/completions',
-      expect.anything(),
-    );
-    expect(response.content).toBe('Fallback CN Output');
-  });
-
-  it('enforces monthly quota and queries DeepSeek with deepseek-chat', async () => {
-    jest.spyOn(llmKeyStore, 'getLlmProvider').mockResolvedValueOnce('deepseek');
-    jest.spyOn(llmKeyStore, 'getLlmApiKey').mockResolvedValueOnce('sk-deepseek-1234');
-
-    const quotaSpy = jest.spyOn(quotaManager, 'incrementAndEnforceQuota').mockResolvedValueOnce(42);
+  it('allows dynamic model override (e.g. DeepSeek V3 / R1 / Kimi)', async () => {
+    jest.spyOn(llmKeyStore, 'getOpenRouterApiKey').mockResolvedValueOnce('sk-or-v1-testkey1234');
 
     const mockFetch = jest.fn().mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        choices: [{ message: { content: 'DeepSeek V4 Analysis Output' } }],
+        choices: [{ message: { content: 'DeepSeek R1 Reasoning Output' } }],
       }),
     });
     globalThis.fetch = mockFetch as unknown as typeof fetch;
 
     const response = await queryLlm({
-      userPrompt: 'Summarize',
-      contextText: 'PocketPick is a secure vault app.',
-    });
-
-    expect(quotaSpy).toHaveBeenCalledTimes(1);
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(response.content).toBe('DeepSeek V4 Analysis Output');
-    expect(response.provider).toBe('deepseek');
-    expect(response.model).toBe('deepseek-chat');
-    expect(response.quotaUsed).toBe(42);
-  });
-
-  it('rejects image payloads when provider is deepseek', async () => {
-    jest.spyOn(llmKeyStore, 'getLlmProvider').mockResolvedValueOnce('deepseek');
-    jest.spyOn(llmKeyStore, 'getLlmApiKey').mockResolvedValueOnce('sk-deepseek-key');
-    jest.spyOn(quotaManager, 'incrementAndEnforceQuota').mockResolvedValueOnce(45);
-
-    await expect(
-      queryLlm({
-        userPrompt: 'Describe this photo',
-        imageBase64: 'data:image/jpeg;base64,1234',
-      }),
-    ).rejects.toThrow('DeepSeek is a text-only model');
-  });
-
-  it('queries Gemini with gemini-3.8-flash', async () => {
-    jest.spyOn(llmKeyStore, 'getLlmProvider').mockResolvedValueOnce('gemini');
-    jest.spyOn(llmKeyStore, 'getLlmApiKey').mockResolvedValueOnce('gemini-key-5678');
-
-    jest.spyOn(quotaManager, 'incrementAndEnforceQuota').mockResolvedValueOnce(43);
-
-    const mockFetch = jest.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        candidates: [{ content: { parts: [{ text: 'Gemini 3.8 Flash Output' }] } }],
-      }),
-    });
-    globalThis.fetch = mockFetch as unknown as typeof fetch;
-
-    const response = await queryLlm({
-      userPrompt: 'Extract',
-      contextText: 'Data payload',
-    });
-
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(response.content).toBe('Gemini 3.8 Flash Output');
-    expect(response.provider).toBe('gemini');
-    expect(response.model).toBe('gemini-3.8-flash');
-  });
-
-  it('stores and isolates separate keys per provider in SecureStore', async () => {
-    await llmKeyStore.setLlmApiKey('gemini-key', 'gemini');
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-      'POCKETPICK_LLM_API_KEY_gemini',
-      'gemini-key',
-      expect.anything(),
-    );
-
-    await llmKeyStore.setLlmApiKey('deepseek-key', 'deepseek');
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-      'POCKETPICK_LLM_API_KEY_deepseek',
-      'deepseek-key',
-      expect.anything(),
-    );
-
-    await llmKeyStore.setLlmApiKey('kimi-key', 'kimi');
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-      'POCKETPICK_LLM_API_KEY_kimi',
-      'kimi-key',
-      expect.anything(),
-    );
-  });
-
-  it('sends multimodal image payload with image_url to Kimi', async () => {
-    jest.spyOn(llmKeyStore, 'getLlmProvider').mockResolvedValueOnce('kimi');
-    jest.spyOn(llmKeyStore, 'getLlmApiKey').mockResolvedValueOnce('sk-kimi-multimodal');
-    jest.spyOn(quotaManager, 'incrementAndEnforceQuota').mockResolvedValueOnce(20);
-
-    const mockFetch = jest.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        choices: [{ message: { content: 'Analysis of sunset photo' } }],
-      }),
-    });
-    globalThis.fetch = mockFetch as unknown as typeof fetch;
-
-    const response = await queryLlm({
-      userPrompt: 'Describe this photo',
-      imageBase64: 'data:image/jpeg;base64,/9j/testdata',
+      userPrompt: 'Complex math proof',
+      model: 'deepseek/deepseek-r1',
     });
 
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://api.moonshot.ai/v1/chat/completions',
+      'https://openrouter.ai/api/v1/chat/completions',
       expect.objectContaining({
-        method: 'POST',
-        body: expect.stringContaining('"type":"image_url"'),
+        body: expect.stringContaining('"model":"deepseek/deepseek-r1"'),
       }),
     );
-    expect(response.content).toBe('Analysis of sunset photo');
+    expect(response.content).toBe('DeepSeek R1 Reasoning Output');
+    expect(response.model).toBe('deepseek/deepseek-r1');
+  });
+
+  it('injects vault master prompt as authoritative system directive', async () => {
+    jest.spyOn(llmKeyStore, 'getOpenRouterApiKey').mockResolvedValueOnce('sk-or-v1-testkey1234');
+
+    let parsedBody: any = null;
+    const mockFetch = jest.fn().mockImplementation((_url, opts) => {
+      parsedBody = JSON.parse(opts.body);
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'Formatted Output' } }],
+        }),
+      });
+    });
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    await queryLlm({
+      userPrompt: 'Extract date and amount',
+      masterPrompt: 'Output in JSON format with merchant, date, total.',
+    });
+
+    expect(parsedBody).toBeDefined();
+    const systemMessage = parsedBody.messages.find((m: any) => m.role === 'system');
+    expect(systemMessage).toBeDefined();
+    expect(systemMessage.content).toContain('=== VAULT MASTER DIRECTIVES (HIGHEST PRIORITY) ===');
+    expect(systemMessage.content).toContain('Output in JSON format with merchant, date, total.');
+  });
+
+  it('sends multimodal image payload with OpenAI image_url format', async () => {
+    jest.spyOn(llmKeyStore, 'getOpenRouterApiKey').mockResolvedValueOnce('sk-or-v1-testkey1234');
+
+    let parsedBody: any = null;
+    const mockFetch = jest.fn().mockImplementation((_url, opts) => {
+      parsedBody = JSON.parse(opts.body);
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'Multimodal Vision Output' } }],
+        }),
+      });
+    });
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    await queryLlm({
+      userPrompt: 'Analyze this photo',
+      imageBase64: 'data:image/jpeg;base64,9j4AAQSkZJRgABAQ',
+    });
+
+    expect(parsedBody).toBeDefined();
+    const userMessage = parsedBody.messages.find((m: any) => m.role === 'user');
+    expect(Array.isArray(userMessage.content)).toBe(true);
+    expect(userMessage.content[0]).toEqual({ type: 'text', text: 'Analyze this photo' });
+    expect(userMessage.content[1]).toEqual({
+      type: 'image_url',
+      image_url: { url: 'data:image/jpeg;base64,9j4AAQSkZJRgABAQ' },
+    });
+  });
+
+  it('handles OpenRouter API errors gracefully', async () => {
+    jest.spyOn(llmKeyStore, 'getOpenRouterApiKey').mockResolvedValueOnce('sk-or-v1-invalid');
+
+    const mockFetch = jest.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      text: async () => 'Unauthorized: Invalid API key',
+    });
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    await expect(
+      queryLlm({
+        userPrompt: 'Hello',
+      }),
+    ).rejects.toThrow('OpenRouter API error (401): Unauthorized: Invalid API key');
+  });
+
+  it('stores and retrieves OpenRouter key and model in SecureStore', async () => {
+    await llmKeyStore.setOpenRouterApiKey('sk-or-v1-secret-key');
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
+      'POCKETPICK_OPENROUTER_API_KEY',
+      'sk-or-v1-secret-key',
+      expect.anything(),
+    );
+
+    await llmKeyStore.setOpenRouterModel('deepseek/deepseek-chat');
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
+      'POCKETPICK_OPENROUTER_MODEL',
+      'deepseek/deepseek-chat',
+    );
+  });
+
+  it('masks OpenRouter API key safely', () => {
+    expect(llmKeyStore.maskApiKey('sk-or-v1-1234567890abcdef')).toBe('sk-or...••••cdef');
+    expect(llmKeyStore.maskApiKey('short')).toBe('••••••••');
+    expect(llmKeyStore.maskApiKey('')).toBe('');
   });
 });

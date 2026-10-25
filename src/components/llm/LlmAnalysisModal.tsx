@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, ScrollView, TextInput, Pressable, Alert, Image } from 'react-native';
 import { PROMPT_PRESETS } from '../../services/llm/promptTemplates';
 import { queryLlm } from '../../services/llm/llmClient';
@@ -31,6 +31,15 @@ export function LlmAnalysisModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savingTicket, setSavingTicket] = useState(false);
+  const [vaultMasterPrompt, setVaultMasterPrompt] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (visible && vaultId) {
+      getVaultMasterPrompt(vaultId)
+        .then((prompt) => setVaultMasterPrompt(prompt.trim() || null))
+        .catch(() => setVaultMasterPrompt(null));
+    }
+  }, [visible, vaultId]);
 
   const handleExecute = async () => {
     const promptToUse = customPrompt.trim() || selectedPrompt;
@@ -39,17 +48,21 @@ export function LlmAnalysisModal({
     setLlmOutput(null);
 
     try {
-      const masterPrompt = vaultId ? await getVaultMasterPrompt(vaultId) : undefined;
       const response = await queryLlm({
         userPrompt: promptToUse,
         imageBase64,
-        masterPrompt,
+        masterPrompt: vaultMasterPrompt || undefined,
       });
       setLlmOutput(response.content);
     } catch (err: unknown) {
       const rawMessage = err instanceof Error ? err.message : 'LLM Query failed';
-      if (rawMessage.toLowerCase().includes('no api key found')) {
-        setError(`${rawMessage}. Go to Settings > LLM Configuration to save your API key.`);
+      if (
+        rawMessage.toLowerCase().includes('openrouter api key') ||
+        rawMessage.toLowerCase().includes('no api key')
+      ) {
+        setError(
+          `${rawMessage}. Go to Settings > LLM Configuration to save your OpenRouter API key.`,
+        );
       } else {
         setError(rawMessage);
       }
@@ -158,6 +171,42 @@ export function LlmAnalysisModal({
                       : 'Ready for multimodal vision reasoning'}
                   </Text>
                 </View>
+              </View>
+            )}
+
+            {/* Vault Master Prompt Banner if active */}
+            {vaultMasterPrompt && (
+              <View
+                style={{
+                  backgroundColor: theme.colors.badgeBg,
+                  borderColor: theme.colors.cardBorder,
+                  borderWidth: 1,
+                  borderRadius: theme.borderRadius ? 8 : 0,
+                  padding: 10,
+                  marginBottom: 16,
+                }}
+              >
+                <View className="flex-row items-center justify-between mb-1">
+                  <Label className="text-[10px]">VAULT MASTER DIRECTIVES (ENFORCED)</Label>
+                  <View
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: theme.colors.accent,
+                    }}
+                  />
+                </View>
+                <Text
+                  numberOfLines={2}
+                  style={{
+                    color: theme.colors.textMuted,
+                    fontFamily: theme.isMono ? 'Courier' : undefined,
+                    fontSize: 11,
+                  }}
+                >
+                  {vaultMasterPrompt}
+                </Text>
               </View>
             )}
 

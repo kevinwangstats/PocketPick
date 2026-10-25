@@ -23,6 +23,7 @@ import { Resource } from '../../db/schema';
 import { decryptBuffer } from '../../crypto/cipher';
 import { Label, ErrorText, Button } from '../ui';
 import { queryLlm } from '../../services/llm/llmClient';
+import { isOpenRouterKeyConfigured } from '../../services/llm/llmKeyStore';
 import { getVaultMasterPrompt } from '../../services/vault/vaultService';
 import { getPhotoText, savePhotoText } from '../../services/media/photoTextService';
 import { LlmAnalysisModal } from '../llm';
@@ -59,11 +60,22 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
 
   // AI Analysis modal state
   const [isAiModalVisible, setIsAiModalVisible] = useState(false);
+  const [hasMasterPrompt, setHasMasterPrompt] = useState(false);
   const { theme } = useTheme();
 
   // Load photo & decrypted associated text
   useEffect(() => {
     let isCancelled = false;
+
+    if (visible && resource?.vaultId) {
+      getVaultMasterPrompt(resource.vaultId)
+        .then((mp) => {
+          if (!isCancelled) {
+            setHasMasterPrompt(Boolean(mp && mp.trim().length > 0));
+          }
+        })
+        .catch(() => {});
+    }
 
     async function loadContent() {
       if (
@@ -164,13 +176,22 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
       return;
     }
 
+    const hasKey = await isOpenRouterKeyConfigured();
+    if (!hasKey) {
+      Alert.alert(
+        'No OpenRouter Key',
+        'Please add your OpenRouter API key in Settings > LLM Configuration to use AI suggestions.',
+      );
+      return;
+    }
+
     setIsSuggesting(true);
     setError(null);
     try {
       // 1. Fetch the vault master prompt
       const masterPrompt = await getVaultMasterPrompt(resource.vaultId);
 
-      // 2. Obtain image base64 for multimodal vision models (e.g. Kimi kimi-k2.6, Gemini)
+      // 2. Obtain image base64 for multimodal vision models
       let imageBase64ToSend = dataUri ?? undefined;
       if (
         !imageBase64ToSend &&
@@ -227,13 +248,16 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
       }
 
       // 3. Query LLM directly with the visual photo asset
+      // If master prompt is active, defer to master prompt directives instead of clashing hardcoded format
       const prompt =
-        'Analyze this photo carefully. Generate a concise title, short description, and key searchable tags for what is shown in the image:';
+        masterPrompt && masterPrompt.trim().length > 0
+          ? 'Analyze this photo in accordance with the vault master prompt directives:'
+          : 'Analyze this photo carefully. Generate a concise title, short description, and key searchable tags for what is shown in the image:';
 
       const response = await queryLlm({
         userPrompt: prompt,
         imageBase64: imageBase64ToSend,
-        masterPrompt,
+        masterPrompt: masterPrompt.trim() || undefined,
       });
 
       if (response.content) {
@@ -267,7 +291,7 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
     try {
       const resolvedPath = resolveResourcePath(resource.encryptedFilePath);
       if (!resolvedPath) {
-        throw new Error("Encrypted photo path could not be resolved");
+        throw new Error('Encrypted photo path could not be resolved');
       }
 
       const cipherB64 = await FileSystem.readAsStringAsync(resolvedPath, {
@@ -288,7 +312,7 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
       const tempFileName = `pocketpick_airdrop_${Date.now()}.jpg`;
       tempShareUri = `${FileSystem.cacheDirectory}${tempFileName}`;
 
-      await FileSystem.writeAsStringAsync(tempShareUri, decryptedBuf.toString("base64"), {
+      await FileSystem.writeAsStringAsync(tempShareUri, decryptedBuf.toString('base64'), {
         encoding: FileSystem.EncodingType.Base64,
       });
 
@@ -297,15 +321,15 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
       await Share.share(
         {
           url: tempShareUri,
-          title: "Share via AirDrop",
+          title: 'Share via AirDrop',
         },
         {
-          subject: "PocketPick Secure Photo",
+          subject: 'PocketPick Secure Photo',
         },
       );
     } catch (err: any) {
-      if (err?.message && !err.message.includes("dismissed") && !err.message.includes("canceled")) {
-        Alert.alert("AirDrop Sharing Failed", err.message);
+      if (err?.message && !err.message.includes('dismissed') && !err.message.includes('canceled')) {
+        Alert.alert('AirDrop Sharing Failed', err.message);
       }
     } finally {
       if (tempShareUri) {
@@ -428,9 +452,34 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
             }}
           >
             <View className="flex-row justify-between items-center mb-2">
-              <Label>
-                {theme.isUppercase ? 'ASSOCIATED TEXT & NOTES' : 'Associated Text & Notes'}
-              </Label>
+              <View className="flex-row items-center gap-2">
+                <Label>
+                  {theme.isUppercase ? 'ASSOCIATED TEXT & NOTES' : 'Associated Text & Notes'}
+                </Label>
+                {hasMasterPrompt && (
+                  <View
+                    style={{
+                      backgroundColor: theme.colors.badgeBg,
+                      borderColor: theme.colors.cardBorder,
+                      borderWidth: 1,
+                      borderRadius: theme.borderRadius ? 4 : 0,
+                      paddingHorizontal: 5,
+                      paddingVertical: 1,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: theme.colors.accent,
+                        fontSize: 9,
+                        fontFamily: theme.isMono ? 'Courier' : undefined,
+                        fontWeight: '700',
+                      }}
+                    >
+                      MASTER PROMPT ACTIVE
+                    </Text>
+                  </View>
+                )}
+              </View>
               <Pressable
                 onPress={handleAiSuggest}
                 disabled={isSuggesting || !dataUri}
@@ -565,11 +614,7 @@ export const FullImageModal: React.FC<FullImageModalProps> = ({
                   fontWeight: '600',
                 }}
               >
-                {isSharing
-                  ? 'SHARING...'
-                  : theme.isUppercase
-                    ? 'AIRDROP'
-                    : 'AirDrop'}
+                {isSharing ? 'SHARING...' : theme.isUppercase ? 'AIRDROP' : 'AirDrop'}
               </Text>
             </Pressable>
 
