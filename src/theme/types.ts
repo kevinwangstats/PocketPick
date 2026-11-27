@@ -1,4 +1,4 @@
-export type ThemeId = 'classic-ios' | 'sakura-pink' | 'cyber';
+export type ThemeId = 'classic-ios' | 'sakura-pink' | 'velvet-noir' | 'champagne-silk' | 'cyber';
 
 export interface AppThemeColors {
   background: string;

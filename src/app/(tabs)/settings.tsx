@@ -6,6 +6,8 @@ import {
   QuotaProgressCard,
   ThemeSwitcher,
   VaultTimeoutSettings,
+  OotdPreferencesCard,
+  PersonalityMemoriesCard,
 } from '../../components/settings';
 import { useTheme } from '../../theme';
 
@@ -19,26 +21,32 @@ export default function SettingsScreen() {
       contentContainerStyle={{ paddingBottom: 60 }}
     >
       <Label className="mb-1">SYSTEM & PREFERENCES</Label>
-      <H1 className="mb-6">SETTINGS</H1>
+      <H1 className="mb-6">{theme.isUppercase ? 'SETTINGS' : 'Settings'}</H1>
 
       {/* Theme Switcher */}
       <ThemeSwitcher />
 
-      {/* Vault Auto-Lock Timeout */}
+      {/* Per-Personality Plain-Text Memories */}
+      <PersonalityMemoriesCard />
+
+      {/* OOTD Ritual & Preferences */}
+      <OotdPreferencesCard />
+
+      {/* Inactivity Auto-Lock & Face ID */}
       <VaultTimeoutSettings />
 
       {/* Quota Progress Card */}
       <QuotaProgressCard />
 
-      {/* API Key Settings */}
+      {/* OpenRouter API Key & Grok Default */}
       <ApiKeySettings />
 
       {/* Security Invariants & Cryptographic Stack */}
       <Card className="p-5 mb-6">
         <Label className="mb-2">CRYPTOGRAPHIC ARCHITECTURE</Label>
         <Body className="text-xs mb-3">
-          PocketPick operates on zero-knowledge envelope encryption. Derived vault keys are
-          ephemeral and zeroized upon app lock or backgrounding.
+          PocketPick OOTD secures your personas, chats, and private photos with AES-256-GCM and
+          SQLCipher. Derived session keys exist strictly in memory and zeroize on lock.
         </Body>
 
         <View
@@ -52,7 +60,7 @@ export default function SettingsScreen() {
           <Mono className="text-[11px] mt-1">• KDF: PBKDF2-HMAC-SHA512 (100,000 iterations)</Mono>
           <Mono className="text-[11px] mt-1">• STORAGE: SQLCipher 256-bit AES + OP-SQLite</Mono>
           <Mono className="text-[11px] mt-1">
-            • HARDWARE: Apple Keychain Secure Enclave / SecureStore
+            • HARDWARE: Apple Keychain Secure Enclave / Face ID
           </Mono>
         </View>
       </Card>

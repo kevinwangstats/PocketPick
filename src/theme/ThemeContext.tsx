@@ -25,10 +25,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     getSecureItem(THEME_STORAGE_KEY)
       .then((stored) => {
-        if (
-          stored &&
-          (stored === 'classic-ios' || stored === 'sakura-pink' || stored === 'cyber')
-        ) {
+        if (stored && stored in THEMES) {
           setThemeIdState(stored as ThemeId);
         }
       })

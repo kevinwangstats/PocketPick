@@ -17,6 +17,14 @@ const THEME_OPTIONS: Array<{
     previewColors: ['#EC4899', '#FFF5F7', '#FCE7F3'],
   },
   {
+    id: 'velvet-noir',
+    previewColors: ['#E2B778', '#120B14', '#3B2342'],
+  },
+  {
+    id: 'champagne-silk',
+    previewColors: ['#9A5B62', '#FAF6F2', '#EADFD8'],
+  },
+  {
     id: 'cyber',
     previewColors: ['#FFFFFF', '#000000', '#27272A'],
   },

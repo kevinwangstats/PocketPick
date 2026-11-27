@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable, TextInput, Alert } from 'react-native';
+import { View, Text, Pressable, TextInput, Alert, Switch } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Card, H2, Label, Body, Mono } from '../ui';
+import { Card, H2, Label, Body, Mono, Button } from '../ui';
 import { useVaultTimeoutStore } from '../../stores/useVaultTimeoutStore';
+import { useAppAuth } from '../../hooks/useAppAuth';
 import { useTheme } from '../../theme';
 
 const PRESET_BUTTONS = [
   { label: '0m', minutes: 0 },
-  { label: '1m', minutes: 1 },
   { label: '5m', minutes: 5 },
+  { label: '15m', minutes: 15 },
 ];
 
 export const VaultTimeoutSettings: React.FC = () => {
   const { theme } = useTheme();
   const { timeoutMinutes, setTimeoutMinutes } = useVaultTimeoutStore();
+  const { biometricAvailable, biometricEnabled, toggleBiometric, lock } = useAppAuth();
   const [customInput, setCustomInput] = useState('');
 
-  const isCustomSelected = timeoutMinutes > 0 && timeoutMinutes !== 1 && timeoutMinutes !== 5;
+  const isCustomSelected = timeoutMinutes !== 0 && timeoutMinutes !== 5 && timeoutMinutes !== 15;
 
   useEffect(() => {
     if (isCustomSelected) {
@@ -43,7 +45,7 @@ export const VaultTimeoutSettings: React.FC = () => {
     if (isNaN(parsed) || parsed <= 0) {
       Alert.alert(
         theme.isUppercase ? 'INVALID TIMEOUT' : 'Invalid Timeout',
-        'Please enter a positive integer for minutes (e.g. 10). To always require password, tap 0m.',
+        'Please enter a positive integer for minutes (e.g. 30). Tap 0m to always require unlock on background.',
       );
       return;
     }
@@ -53,30 +55,86 @@ export const VaultTimeoutSettings: React.FC = () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       Alert.alert(
         theme.isUppercase ? 'SAVED' : 'Saved',
-        `Vault auto-lock timeout set to ${parsed} minute(s).`,
+        `Inactivity auto-lock set to ${parsed} minute(s).`,
       );
     } catch (err) {
       Alert.alert('Error', err instanceof Error ? err.message : 'Failed to save timeout');
     }
   };
 
+  const handleToggleBiometric = async (nextVal: boolean) => {
+    try {
+      const ok = await toggleBiometric(nextVal);
+      if (ok) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      }
+    } catch (err) {
+      Alert.alert(
+        'Biometric Error',
+        err instanceof Error ? err.message : 'Unable to update Face ID',
+      );
+    }
+  };
+
   return (
     <Card className="p-5 mb-6">
       <H2 className="mb-1">
-        {theme.isUppercase ? 'VAULT AUTO-LOCK TIMEOUT' : 'Vault Auto-Lock Timeout'}
+        {theme.isUppercase ? 'SECURITY & AUTO-LOCK' : 'Security & Auto-Lock'}
       </H2>
       <Body className="text-xs mb-4">
-        Configure how long a vault stays open before requiring your password again. 0m always
-        requires the password on access.
+        Locks the app after inactivity (never mid-chat). 0m immediately locks when backgrounded.
       </Body>
 
-      <Label className="mb-2">{theme.isUppercase ? 'TIMEOUT OPTIONS' : 'Timeout Options'}</Label>
+      {/* Face ID / Touch ID Toggle */}
+      <View
+        style={{
+          backgroundColor: theme.isDark ? '#000000' : theme.colors.background,
+          borderColor: theme.colors.cardBorder,
+          borderWidth: 1,
+          borderRadius: theme.borderRadius ? 10 : 0,
+          padding: 12,
+        }}
+        className="mb-4 flex-row justify-between items-center"
+      >
+        <View className="flex-1 pr-3">
+          <Text
+            style={{
+              color: theme.colors.textPrimary,
+              fontFamily: theme.isMono ? 'Courier' : undefined,
+              fontWeight: '600',
+              fontSize: 13,
+            }}
+          >
+            {theme.isUppercase ? 'FACE ID QUICK UNLOCK' : 'Face ID Quick Unlock'}
+          </Text>
+          <Text
+            style={{
+              color: theme.colors.textMuted,
+              fontSize: 11,
+              marginTop: 2,
+              fontFamily: theme.isMono ? 'Courier' : undefined,
+            }}
+          >
+            {biometricAvailable
+              ? 'Unlock effortlessly with Face ID / Touch ID'
+              : 'Biometrics not enrolled on this device'}
+          </Text>
+        </View>
+        <Switch
+          value={biometricEnabled}
+          onValueChange={handleToggleBiometric}
+          disabled={!biometricAvailable}
+          trackColor={{ false: theme.colors.cardBorder, true: theme.colors.accent }}
+        />
+      </View>
 
-      {/* Single-line Row containing 0m, 1m, 5m, and customized positive integer input */}
+      <Label className="mb-2">
+        {theme.isUppercase ? 'INACTIVITY TIMEOUT' : 'Inactivity Timeout'}
+      </Label>
+
       <View className="flex-row items-center gap-1.5">
         {PRESET_BUTTONS.map((preset) => {
           const isSelected = timeoutMinutes === preset.minutes;
-
           return (
             <Pressable
               key={preset.minutes}
@@ -102,7 +160,6 @@ export const VaultTimeoutSettings: React.FC = () => {
                   fontWeight: isSelected ? '700' : '600',
                   fontSize: 13,
                   fontFamily: theme.isMono ? 'Courier' : undefined,
-                  letterSpacing: theme.isUppercase ? 0.8 : 0.2,
                 }}
               >
                 {preset.label}
@@ -111,7 +168,6 @@ export const VaultTimeoutSettings: React.FC = () => {
           );
         })}
 
-        {/* Customized Positive Integer Input Container in the same line */}
         <View
           style={{
             flex: 1,
@@ -127,18 +183,9 @@ export const VaultTimeoutSettings: React.FC = () => {
         >
           <TextInput
             value={customInput}
-            onChangeText={(val) => {
-              const sanitized = val.replace(/[^0-9]/g, '');
-              setCustomInput(sanitized);
-            }}
+            onChangeText={(val) => setCustomInput(val.replace(/[^0-9]/g, ''))}
             onSubmitEditing={handleSaveCustom}
-            placeholder={
-              isCustomSelected
-                ? `${timeoutMinutes}m`
-                : theme.isUppercase
-                  ? 'CUSTOM (MIN)'
-                  : 'Custom (min)'
-            }
+            placeholder={isCustomSelected ? `${timeoutMinutes}m` : 'Custom (min)'}
             placeholderTextColor={isCustomSelected ? theme.colors.accent : theme.colors.textMuted}
             keyboardType="number-pad"
             returnKeyType="done"
@@ -178,7 +225,6 @@ export const VaultTimeoutSettings: React.FC = () => {
         </View>
       </View>
 
-      {/* Active Timeout Status Indicator */}
       <View
         style={{
           backgroundColor: theme.isDark ? '#000000' : theme.colors.background,
@@ -187,19 +233,27 @@ export const VaultTimeoutSettings: React.FC = () => {
           borderRadius: theme.borderRadius ? 8 : 0,
           padding: 12,
         }}
-        className="mt-4 flex-row justify-between items-center"
+        className="mt-4 mb-4 flex-row justify-between items-center"
       >
         <Label className="text-[11px]">
           {theme.isUppercase ? 'ACTIVE STATUS' : 'Active Status'}
         </Label>
         <Mono className="text-xs font-bold">
           {timeoutMinutes === 0
-            ? theme.isUppercase
-              ? '0M (ALWAYS REQUIRES PASSWORD)'
-              : '0m (Always requires password)'
-            : `${timeoutMinutes} ${timeoutMinutes === 1 ? 'MINUTE' : 'MINUTES'}`}
+            ? '0m (Immediate on background)'
+            : `${timeoutMinutes} ${timeoutMinutes === 1 ? 'minute' : 'minutes'} idle`}
         </Mono>
       </View>
+
+      <Button
+        variant="secondary"
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+          lock();
+        }}
+      >
+        {theme.isUppercase ? 'LOCK APP NOW' : 'Lock App Now'}
+      </Button>
     </Card>
   );
 };
