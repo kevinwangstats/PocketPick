@@ -54,7 +54,8 @@ export async function getDatabase(): Promise<DrizzleDb> {
 }
 
 /**
- * Executes DDL statements ensuring all canonical OOTD tables are provisioned.
+ * Executes DDL statements ensuring all canonical OOTD tables are provisioned
+ * and dropping any legacy PocketPick tables from earlier builds.
  */
 export async function initializeTables(db: DB): Promise<void> {
   const ddlStatements = [
@@ -137,45 +138,10 @@ export async function initializeTables(db: DB): Promise<void> {
       max_monthly_limit INTEGER NOT NULL DEFAULT 500,
       last_request_at INTEGER
     );`,
-    // Temporary legacy tables kept until Task 2.3 legacy code purge
-    `CREATE TABLE IF NOT EXISTS vaults (
-      id TEXT PRIMARY KEY NOT NULL,
-      name TEXT NOT NULL,
-      description TEXT,
-      salt TEXT NOT NULL,
-      verifier_cipher TEXT NOT NULL,
-      verifier_iv TEXT NOT NULL,
-      verifier_tag TEXT NOT NULL,
-      llm_master_prompt TEXT,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
-    );`,
-    `CREATE TABLE IF NOT EXISTS resources (
-      id TEXT PRIMARY KEY NOT NULL,
-      vault_id TEXT NOT NULL REFERENCES vaults(id) ON DELETE CASCADE,
-      type TEXT NOT NULL,
-      weight INTEGER NOT NULL DEFAULT 1,
-      encrypted_payload TEXT,
-      payload_iv TEXT,
-      payload_tag TEXT,
-      encrypted_file_path TEXT,
-      file_iv TEXT,
-      file_tag TEXT,
-      file_hash TEXT,
-      encrypted_thumbnail_path TEXT,
-      thumbnail_iv TEXT,
-      thumbnail_tag TEXT,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
-    );`,
-    `CREATE TABLE IF NOT EXISTS history_logs (
-      id TEXT PRIMARY KEY NOT NULL,
-      vault_id TEXT NOT NULL REFERENCES vaults(id) ON DELETE CASCADE,
-      resource_id TEXT REFERENCES resources(id) ON DELETE SET NULL,
-      selected_at INTEGER NOT NULL,
-      action_type TEXT NOT NULL,
-      notes TEXT
-    );`,
+    // Clean up obsolete legacy PocketPick tables
+    'DROP TABLE IF EXISTS history_logs;',
+    'DROP TABLE IF EXISTS resources;',
+    'DROP TABLE IF EXISTS vaults;',
     // iOS container sandbox UUID migration for relative paths
     `UPDATE photos
      SET encrypted_file_path = SUBSTR(encrypted_file_path, INSTR(encrypted_file_path, 'photos/'))
@@ -199,7 +165,7 @@ export async function initializeTables(db: DB): Promise<void> {
         await db.execute(stmt);
       }
     } catch {
-      // Column or table already exists
+      // Ignore if table/column already migrated
     }
   }
 }

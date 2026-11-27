@@ -34,7 +34,7 @@ export default function TabsLayout() {
         tabBarLabelStyle: {
           fontFamily: theme.isMono ? 'Courier' : undefined,
           fontSize: 11,
-          letterSpacing: theme.isUppercase ? 1.5 : 0.2,
+          letterSpacing: theme.isUppercase ? 1.2 : 0.2,
           fontWeight: '600',
           textTransform: theme.isUppercase ? 'uppercase' : 'none',
         },
@@ -43,35 +43,35 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: theme.isUppercase ? 'VAULTS' : 'Vaults',
-          tabBarLabel: theme.isUppercase ? 'VAULTS' : 'Vaults',
+          title: theme.isUppercase ? 'CHATS' : 'Chats',
+          tabBarLabel: theme.isUppercase ? 'CHATS' : 'Chats',
           tabBarIcon: ({ color }) => (
             <Text style={{ color, fontFamily: theme.isMono ? 'Courier' : undefined, fontSize: 16 }}>
-              {theme.isMono ? '[V]' : '🔐'}
+              {theme.isMono ? '[C]' : '💬'}
             </Text>
           ),
         }}
       />
       <Tabs.Screen
-        name="randomizer"
+        name="wardrobe"
         options={{
-          title: theme.isUppercase ? 'RANDOMIZER' : 'Picker',
-          tabBarLabel: theme.isUppercase ? 'PICK' : 'Pick',
+          title: theme.isUppercase ? 'WARDROBE' : 'Wardrobe',
+          tabBarLabel: theme.isUppercase ? 'WARDROBE' : 'Wardrobe',
           tabBarIcon: ({ color }) => (
             <Text style={{ color, fontFamily: theme.isMono ? 'Courier' : undefined, fontSize: 16 }}>
-              {theme.isMono ? '[?]' : '🎲'}
+              {theme.isMono ? '[W]' : '👗'}
             </Text>
           ),
         }}
       />
       <Tabs.Screen
-        name="history"
+        name="past-ootd"
         options={{
-          title: theme.isUppercase ? 'SELECTION AUDIT' : 'Timeline',
-          tabBarLabel: theme.isUppercase ? 'TIMELINE' : 'Timeline',
+          title: theme.isUppercase ? 'PAST OOTD' : 'Past OOTD',
+          tabBarLabel: theme.isUppercase ? 'PAST OOTD' : 'Past OOTD',
           tabBarIcon: ({ color }) => (
             <Text style={{ color, fontFamily: theme.isMono ? 'Courier' : undefined, fontSize: 16 }}>
-              {theme.isMono ? '[#]' : '📜'}
+              {theme.isMono ? '[O]' : '✨'}
             </Text>
           ),
         }}
@@ -79,8 +79,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: theme.isUppercase ? 'SYSTEM & SECURITY' : 'Settings',
-          tabBarLabel: theme.isUppercase ? 'SYSTEM' : 'System',
+          title: theme.isUppercase ? 'SETTINGS' : 'Settings',
+          tabBarLabel: theme.isUppercase ? 'SETTINGS' : 'Settings',
           tabBarIcon: ({ color }) => (
             <Text style={{ color, fontFamily: theme.isMono ? 'Courier' : undefined, fontSize: 16 }}>
               {theme.isMono ? '[*]' : '⚙️'}

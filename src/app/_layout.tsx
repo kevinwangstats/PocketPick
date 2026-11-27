@@ -4,12 +4,13 @@ import '../../global.css';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, LogBox } from 'react-native';
-
-LogBox.ignoreAllLogs(true);
 import { getDatabase } from '../db/client';
 import { useAutoLock } from '../hooks/useAutoLock';
 import { PrivacyShield } from '../components/security/PrivacyShield';
+import { AppLockGate } from '../components/auth/AppLockGate';
 import { ThemeProvider, useTheme } from '../theme';
+
+LogBox.ignoreAllLogs(true);
 
 function RootContent() {
   const { theme } = useTheme();
@@ -19,34 +20,29 @@ function RootContent() {
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <StatusBar style={theme.isDark ? 'light' : 'dark'} />
       <PrivacyShield visible={isShieldActive} />
-      <Stack
-        screenOptions={{
-          headerStyle: { backgroundColor: theme.colors.headerBg },
-          headerTintColor: theme.colors.headerText,
-          headerTitleStyle: {
-            fontFamily: theme.isMono ? 'Courier' : undefined,
-            fontWeight: 'bold',
-          },
-          contentStyle: { backgroundColor: theme.colors.background },
-          animation: 'fade',
-        }}
-      >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="vault/[id]"
-          options={{
-            title: theme.isUppercase ? 'VAULT CONTENTS' : 'Vault Contents',
-            headerBackTitle: theme.isUppercase ? 'BACK' : 'Back',
+      <AppLockGate>
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: theme.colors.headerBg },
+            headerTintColor: theme.colors.headerText,
+            headerTitleStyle: {
+              fontFamily: theme.isMono ? 'Courier' : undefined,
+              fontWeight: 'bold',
+            },
+            contentStyle: { backgroundColor: theme.colors.background },
+            animation: 'fade',
           }}
-        />
-        <Stack.Screen
-          name="vault/unlock"
-          options={{
-            presentation: 'modal',
-            title: theme.isUppercase ? 'UNLOCK VAULT' : 'Unlock Vault',
-          }}
-        />
-      </Stack>
+        >
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="chat/[id]"
+            options={{
+              title: theme.isUppercase ? 'STYLIST CHAT' : 'Stylist Chat',
+              headerBackTitle: theme.isUppercase ? 'CHATS' : 'Chats',
+            }}
+          />
+        </Stack>
+      </AppLockGate>
     </View>
   );
 }

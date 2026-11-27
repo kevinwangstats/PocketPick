@@ -3,9 +3,6 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import QuickCrypto from 'react-native-quick-crypto';
 import { Buffer } from '@craftzdog/react-native-buffer';
-import { eq, and } from 'drizzle-orm';
-import { getDatabase } from '../../db/client';
-import { resources } from '../../db/schema';
 import { encryptBuffer, decryptBuffer } from '../../crypto/cipher';
 import { shredFile } from './fileShredder';
 
@@ -188,116 +185,6 @@ export async function prepareVisionImageDataUri(params: {
     await shredFile(tempSourceUri);
     if (resizedUri && resizedUri !== tempSourceUri) {
       await shredFile(resizedUri);
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Temporary deprecated PocketPick helper (removed in Task 3.2 media purge)
-// ---------------------------------------------------------------------------
-
-/** @deprecated Removed in Task 3.2 */
-export interface IngestionResult {
-  resourceId: string;
-  vaultId: string;
-  filePath: string;
-  thumbnailPath: string;
-  fileHash: string;
-  isDuplicate?: boolean;
-}
-
-/** @deprecated Removed in Task 3.2 */
-export async function ingestImage(
-  sourceUri: string,
-  vaultId: string,
-  vaultKey: Buffer,
-): Promise<IngestionResult> {
-  const resourceId = QuickCrypto.randomBytes(16).toString('hex');
-  let thumbUri: string | null = null;
-
-  try {
-    const fullBase64 = await FileSystem.readAsStringAsync(sourceUri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    const fullBuffer = Buffer.from(fullBase64, 'base64');
-    const fileHash = computeImageHash(fullBuffer, vaultKey);
-
-    const db = await getDatabase();
-    const existing = await db
-      .select({ id: resources.id })
-      .from(resources)
-      .where(and(eq(resources.vaultId, vaultId), eq(resources.fileHash, fileHash)))
-      .limit(1);
-
-    if (existing.length > 0) {
-      return {
-        resourceId: existing[0].id,
-        vaultId,
-        filePath: '',
-        thumbnailPath: '',
-        fileHash,
-        isDuplicate: true,
-      };
-    }
-
-    const manipulated = await ImageManipulator.manipulateAsync(
-      sourceUri,
-      [{ resize: { width: 300 } }],
-      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG },
-    );
-    thumbUri = manipulated.uri;
-
-    const thumbBase64 = await FileSystem.readAsStringAsync(thumbUri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    const thumbBuffer = Buffer.from(thumbBase64, 'base64');
-
-    const encryptedFull = encryptBuffer(fullBuffer, vaultKey, vaultId);
-    const encryptedThumb = encryptBuffer(thumbBuffer, vaultKey, vaultId);
-
-    const vaultDir = `${FileSystem.documentDirectory}vaults/${vaultId}/resources/`;
-    await FileSystem.makeDirectoryAsync(vaultDir, { intermediates: true });
-
-    const fullEncPath = `${vaultDir}${resourceId}.enc`;
-    const thumbEncPath = `${vaultDir}${resourceId}_thumb.enc`;
-
-    await FileSystem.writeAsStringAsync(fullEncPath, encryptedFull.ciphertext, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    await FileSystem.writeAsStringAsync(thumbEncPath, encryptedThumb.ciphertext, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-
-    await db.insert(resources).values({
-      id: resourceId,
-      vaultId,
-      type: 'photo',
-      weight: 1,
-      encryptedFilePath: toRelativeResourcePath(fullEncPath),
-      fileIv: encryptedFull.iv,
-      fileTag: encryptedFull.tag,
-      fileHash,
-      encryptedThumbnailPath: toRelativeResourcePath(thumbEncPath),
-      thumbnailIv: encryptedThumb.iv,
-      thumbnailTag: encryptedThumb.tag,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    return {
-      resourceId,
-      vaultId,
-      filePath: fullEncPath,
-      thumbnailPath: thumbEncPath,
-      fileHash,
-      isDuplicate: false,
-    };
-  } finally {
-    if (thumbUri) {
-      await shredFile(thumbUri);
-    }
-    if (sourceUri && sourceUri.includes(FileSystem.cacheDirectory ?? '')) {
-      await shredFile(sourceUri);
     }
   }
 }

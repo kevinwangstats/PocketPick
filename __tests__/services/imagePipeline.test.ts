@@ -1,133 +1,104 @@
-import { ingestImage, computeImageHash } from '@/services/media/imagePipeline';
 import * as FileSystem from 'expo-file-system';
-import { mockFileSystem } from '../mocks/file-system.mock';
 import QuickCrypto from 'react-native-quick-crypto';
-import { getDatabase } from '@/db/client';
+import {
+  encryptAndStoreImage,
+  decryptImageBuffer,
+  prepareVisionImageDataUri,
+  computeImageHash,
+} from '@/services/media/imagePipeline';
+import { mockFileSystem } from '../mocks/file-system.mock';
 
-describe('Secure Image Ingestion Pipeline (TDD)', () => {
-  const vaultId = 'vault-media-001';
-  const vaultKey = QuickCrypto.randomBytes(32);
-  const storedResources: any[] = [];
+describe('Optimized 1600px Private Image Pipeline (TDD)', () => {
+  const sessionKey = QuickCrypto.randomBytes(32);
 
   beforeEach(async () => {
-    storedResources.length = 0;
     mockFileSystem._reset();
-
-    const db = await getDatabase();
-    jest.spyOn(db, 'insert').mockImplementation((_table: any) => {
-      return {
-        values: (val: any) => {
-          storedResources.push(val);
-          return Promise.resolve();
-        },
-      } as any;
-    });
-
-    jest.spyOn(db, 'select').mockImplementation((_fields?: any) => {
-      return {
-        from: (_table: any) => ({
-          where: (_clause: any) => ({
-            limit: (_count: number) => {
-              return Promise.resolve(storedResources);
-            },
-          }),
-        }),
-      } as any;
-    });
-
-    // Prepare fake picked photo in cache
     await FileSystem.writeAsStringAsync(
-      '/mock/cache/picked_camera_photo.jpg',
-      Buffer.from('Fake raw unencrypted photo bytes').toString('base64'),
+      '/mock/cache/raw_garment.jpg',
+      Buffer.from('Raw unencrypted silk garment photo bytes').toString('base64'),
       { encoding: FileSystem.EncodingType.Base64 },
     );
   });
 
-  it('generates encrypted full photo and thumbnail, and shreds temporary source', async () => {
-    const result = await ingestImage('/mock/cache/picked_camera_photo.jpg', vaultId, vaultKey);
-
-    expect(result.resourceId).toBeDefined();
-    expect(result.filePath).toContain('.enc');
-    expect(result.thumbnailPath).toContain('_thumb.enc');
-    expect(result.isDuplicate).toBe(false);
-
-    // Verify .enc files were written to disk
-    expect(mockFileSystem._storage.has(result.filePath)).toBe(true);
-    expect(mockFileSystem._storage.has(result.thumbnailPath)).toBe(true);
-
-    // CRITICAL SECURITY INVARIANT: Raw picked file must be shredded
-    expect(mockFileSystem._storage.has('/mock/cache/picked_camera_photo.jpg')).toBe(false);
-  });
-
-  it('detects and skips duplicate photos on second ingestion attempt', async () => {
-    // 1st Ingestion: First time importing the photo
-    const firstResult = await ingestImage('/mock/cache/picked_camera_photo.jpg', vaultId, vaultKey);
-    expect(firstResult.isDuplicate).toBe(false);
-    expect(storedResources).toHaveLength(1);
-
-    // Prepare identical photo again in cache (simulating re-picking the same photo)
-    await FileSystem.writeAsStringAsync(
-      '/mock/cache/duplicate_camera_photo.jpg',
-      Buffer.from('Fake raw unencrypted photo bytes').toString('base64'),
-      { encoding: FileSystem.EncodingType.Base64 },
-    );
-
-    // 2nd Ingestion: Same bytes into same vault
-    const secondResult = await ingestImage(
-      '/mock/cache/duplicate_camera_photo.jpg',
-      vaultId,
-      vaultKey,
-    );
-
-    expect(secondResult.isDuplicate).toBe(true);
-    expect(secondResult.resourceId).toBe(firstResult.resourceId);
-    expect(secondResult.fileHash).toBe(firstResult.fileHash);
-    expect(storedResources).toHaveLength(1); // No duplicate DB row inserted
-
-    // Raw duplicate file must still be shredded
-    expect(mockFileSystem._storage.has('/mock/cache/duplicate_camera_photo.jpg')).toBe(false);
-  });
-
-  it('allows importing different photos with unique contents', async () => {
-    await FileSystem.writeAsStringAsync(
-      '/mock/cache/photo_a.jpg',
-      Buffer.from('Unique photo content A').toString('base64'),
-      { encoding: FileSystem.EncodingType.Base64 },
-    );
-    await FileSystem.writeAsStringAsync(
-      '/mock/cache/photo_b.jpg',
-      Buffer.from('Unique photo content B').toString('base64'),
-      { encoding: FileSystem.EncodingType.Base64 },
-    );
-
-    // Custom select spy for distinct hashes
-    const db = await getDatabase();
-    jest.spyOn(db, 'select').mockImplementation((_fields?: any) => {
-      return {
-        from: (_table: any) => ({
-          where: (_clause: any) => ({
-            limit: () => {
-              return Promise.resolve([]); // No collision
-            },
-          }),
-        }),
-      } as any;
+  it('encrypts optimized full + thumb files under sandbox bucket and shreds temp cache', async () => {
+    const stored = await encryptAndStoreImage({
+      sourceUri: '/mock/cache/raw_garment.jpg',
+      id: 'img-001',
+      bucket: 'photos',
+      sessionKey,
+      aad: 'img-001',
     });
 
-    const resA = await ingestImage('/mock/cache/photo_a.jpg', vaultId, vaultKey);
-    const resB = await ingestImage('/mock/cache/photo_b.jpg', vaultId, vaultKey);
+    expect(stored.relativeFilePath).toBe('photos/img-001.enc');
+    expect(stored.relativeThumbnailPath).toBe('photos/img-001_thumb.enc');
+    expect(mockFileSystem._storage.has('/mock/documents/photos/img-001.enc')).toBe(true);
+    expect(mockFileSystem._storage.has('/mock/documents/photos/img-001_thumb.enc')).toBe(true);
+    expect(mockFileSystem._storage.has('/mock/cache/raw_garment.jpg')).toBe(false);
 
-    expect(resA.isDuplicate).toBe(false);
-    expect(resB.isDuplicate).toBe(false);
-    expect(resA.fileHash).not.toBe(resB.fileHash);
-    expect(resA.resourceId).not.toBe(resB.resourceId);
+    const decrypted = await decryptImageBuffer({
+      encryptedPath: stored.relativeFilePath,
+      iv: stored.fileIv,
+      tag: stored.fileTag,
+      sessionKey,
+      aad: 'img-001',
+    });
+    expect(decrypted.length).toBeGreaterThan(0);
+  });
+
+  it('rejects 1-byte tampered ciphertext during decryption', async () => {
+    const stored = await encryptAndStoreImage({
+      sourceUri: '/mock/cache/raw_garment.jpg',
+      id: 'img-tamper',
+      bucket: 'photos',
+      sessionKey,
+      aad: 'img-tamper',
+    });
+
+    const fullPath = '/mock/documents/photos/img-tamper.enc';
+    const rawCipher = Buffer.from(mockFileSystem._storage.get(fullPath)!, 'base64');
+    rawCipher[0] = rawCipher[0] ^ 0xff;
+    mockFileSystem._storage.set(fullPath, rawCipher.toString('base64'));
+
+    await expect(
+      decryptImageBuffer({
+        encryptedPath: stored.relativeFilePath,
+        iv: stored.fileIv,
+        tag: stored.fileTag,
+        sessionKey,
+        aad: 'img-tamper',
+      }),
+    ).rejects.toThrow();
+  });
+
+  it('prepares crisp 1024px vision data URI and shreds temporary cache files', async () => {
+    const stored = await encryptAndStoreImage({
+      sourceUri: '/mock/cache/raw_garment.jpg',
+      id: 'img-vision',
+      bucket: 'photos',
+      sessionKey,
+      aad: 'img-vision',
+    });
+
+    const dataUri = await prepareVisionImageDataUri({
+      encryptedPath: stored.relativeFilePath,
+      iv: stored.fileIv,
+      tag: stored.fileTag,
+      sessionKey,
+      aad: 'img-vision',
+    });
+
+    expect(dataUri.startsWith('data:image/jpeg;base64,')).toBe(true);
+    const lingeringCacheKeys = Array.from(mockFileSystem._storage.keys()).filter((k) =>
+      k.startsWith('/mock/cache/vision_src_'),
+    );
+    expect(lingeringCacheKeys).toHaveLength(0);
   });
 
   it('computes deterministic HMAC-SHA256 blind index hash', () => {
     const buf = Buffer.from('Testing image content hash');
-    const hash1 = computeImageHash(buf, vaultKey);
-    const hash2 = computeImageHash(buf, vaultKey);
+    const hash1 = computeImageHash(buf, sessionKey);
+    const hash2 = computeImageHash(buf, sessionKey);
     expect(hash1).toBe(hash2);
-    expect(hash1.length).toBe(64); // SHA-256 hex string length
+    expect(hash1).toHaveLength(64);
   });
 });

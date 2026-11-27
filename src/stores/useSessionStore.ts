@@ -10,15 +10,6 @@ export interface SessionState {
   setAppSessionKey: (key: Buffer) => void;
   lockApp: () => void;
   touchActivity: () => void;
-
-  /** @deprecated Removed in Task 2.3 legacy purge */
-  activeVaultId: string | null;
-  /** @deprecated Removed in Task 2.3 legacy purge */
-  activeVaultKey: Buffer | null;
-  /** @deprecated Removed in Task 2.3 legacy purge */
-  setActiveVault: (vaultId: string, key: Buffer) => void;
-  /** @deprecated Removed in Task 2.3 legacy purge */
-  lockVault: () => void;
 }
 
 /**
@@ -31,8 +22,6 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   isUnlocked: false,
   lastActiveTimestamp: null,
   unlockedAt: null,
-  activeVaultId: null,
-  activeVaultKey: null,
 
   setAppSessionKey: (key: Buffer) => {
     const prevKey = get().appSessionKey;
@@ -42,8 +31,6 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const now = Date.now();
     set({
       appSessionKey: key,
-      activeVaultKey: key,
-      activeVaultId: 'app',
       isUnlocked: true,
       unlockedAt: now,
       lastActiveTimestamp: now,
@@ -57,8 +44,6 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
     set({
       appSessionKey: null,
-      activeVaultId: null,
-      activeVaultKey: null,
       isUnlocked: false,
       unlockedAt: null,
       lastActiveTimestamp: null,
@@ -68,25 +53,5 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   touchActivity: () => {
     if (!get().appSessionKey) return;
     set({ lastActiveTimestamp: Date.now() });
-  },
-
-  setActiveVault: (vaultId: string, key: Buffer) => {
-    const prevKey = get().appSessionKey;
-    if (prevKey && prevKey !== key) {
-      zeroizeBuffer(prevKey);
-    }
-    const now = Date.now();
-    set({
-      appSessionKey: key,
-      activeVaultId: vaultId,
-      activeVaultKey: key,
-      isUnlocked: true,
-      unlockedAt: now,
-      lastActiveTimestamp: now,
-    });
-  },
-
-  lockVault: () => {
-    get().lockApp();
   },
 }));

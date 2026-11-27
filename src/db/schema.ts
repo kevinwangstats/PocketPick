@@ -25,8 +25,6 @@ export type NewAppSecurity = typeof appSecurity.$inferInsert;
 
 /**
  * AI Designer Personalities ("Persons") table.
- * Each person has a configurable personality prompt, tone preset, encrypted portrait avatar,
- * and an extensible plain-text personal preference memory viewable/editable in Settings.
  */
 export const persons = sqliteTable('persons', {
   id: text('id').primaryKey(),
@@ -51,7 +49,6 @@ export type NewPerson = typeof persons.$inferInsert;
 
 /**
  * App-only encrypted photos separated into 'wardrobe' (garment items) and 'past_ootd' (body try-on/OOTD).
- * Both item label and descriptions are AES-256-GCM encrypted.
  */
 export const photos = sqliteTable('photos', {
   id: text('id').primaryKey(),
@@ -142,70 +139,3 @@ export const apiQuotas = sqliteTable('api_quotas', {
 
 export type ApiQuota = typeof apiQuotas.$inferSelect;
 export type NewApiQuota = typeof apiQuotas.$inferInsert;
-
-// ---------------------------------------------------------------------------
-// Temporary deprecated legacy PocketPick table exports (removed in Task 2.3)
-// ---------------------------------------------------------------------------
-
-/** @deprecated Removed in Task 2.3 legacy purge */
-export const vaults = sqliteTable('vaults', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  description: text('description'),
-  salt: text('salt').notNull(),
-  verifierCipher: text('verifier_cipher').notNull(),
-  verifierIv: text('verifier_iv').notNull(),
-  verifierTag: text('verifier_tag').notNull(),
-  llmMasterPrompt: text('llm_master_prompt'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
-});
-
-/** @deprecated Removed in Task 2.3 legacy purge */
-export type Vault = typeof vaults.$inferSelect;
-/** @deprecated Removed in Task 2.3 legacy purge */
-export type NewVault = typeof vaults.$inferInsert;
-
-/** @deprecated Removed in Task 2.3 legacy purge */
-export const resources = sqliteTable('resources', {
-  id: text('id').primaryKey(),
-  vaultId: text('vault_id')
-    .notNull()
-    .references(() => vaults.id, { onDelete: 'cascade' }),
-  type: text('type', { enum: ['ticket', 'photo'] }).notNull(),
-  weight: integer('weight').notNull().default(1),
-  encryptedPayload: text('encrypted_payload'),
-  payloadIv: text('payload_iv'),
-  payloadTag: text('payload_tag'),
-  encryptedFilePath: text('encrypted_file_path'),
-  fileIv: text('file_iv'),
-  fileTag: text('file_tag'),
-  fileHash: text('file_hash'),
-  encryptedThumbnailPath: text('encrypted_thumbnail_path'),
-  thumbnailIv: text('thumbnail_iv'),
-  thumbnailTag: text('thumbnail_tag'),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
-});
-
-/** @deprecated Removed in Task 2.3 legacy purge */
-export type Resource = typeof resources.$inferSelect;
-/** @deprecated Removed in Task 2.3 legacy purge */
-export type NewResource = typeof resources.$inferInsert;
-
-/** @deprecated Removed in Task 2.3 legacy purge */
-export const historyLogs = sqliteTable('history_logs', {
-  id: text('id').primaryKey(),
-  vaultId: text('vault_id')
-    .notNull()
-    .references(() => vaults.id, { onDelete: 'cascade' }),
-  resourceId: text('resource_id').references(() => resources.id, { onDelete: 'set null' }),
-  selectedAt: integer('selected_at', { mode: 'timestamp' }).notNull(),
-  actionType: text('action_type', { enum: ['pick', 're_pick', 'discard'] }).notNull(),
-  notes: text('notes'),
-});
-
-/** @deprecated Removed in Task 2.3 legacy purge */
-export type HistoryLog = typeof historyLogs.$inferSelect;
-/** @deprecated Removed in Task 2.3 legacy purge */
-export type NewHistoryLog = typeof historyLogs.$inferInsert;
