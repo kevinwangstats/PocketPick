@@ -1,8 +1,17 @@
-import { vaults, resources, historyLogs, apiQuotas } from '@/db/schema';
+import {
+  appSecurity,
+  persons,
+  photos,
+  chatMessages,
+  ootdLooks,
+  apiQuotas,
+  WARDROBE_CATEGORIES,
+  PHOTO_KINDS,
+} from '@/db/schema';
 import { getDatabase, closeDatabase } from '@/db/client';
 import { open } from '@op-engineering/op-sqlite';
 
-describe('Drizzle Schema & Database Client Initialization', () => {
+describe('OOTD Drizzle Schema & Database Client Initialization', () => {
   beforeEach(() => {
     closeDatabase();
     jest.clearAllMocks();
@@ -12,23 +21,30 @@ describe('Drizzle Schema & Database Client Initialization', () => {
     closeDatabase();
   });
 
-  it('defines valid table schema configurations', () => {
-    expect(vaults).toBeDefined();
-    expect(resources).toBeDefined();
-    expect(historyLogs).toBeDefined();
-    expect(apiQuotas).toBeDefined();
+  it('defines strict 5-category wardrobe enum and photo kind enum', () => {
+    expect(WARDROBE_CATEGORIES).toEqual(['top', 'bottom', 'underwear', 'hosiery', 'others']);
+    expect(PHOTO_KINDS).toEqual(['wardrobe', 'past_ootd']);
+  });
 
-    // Verify key columns
-    expect(vaults.id).toBeDefined();
-    expect(vaults.salt).toBeDefined();
-    expect(vaults.verifierCipher).toBeDefined();
+  it('defines all canonical OOTD table schema configurations', () => {
+    expect(appSecurity.salt).toBeDefined();
+    expect(appSecurity.verifierCipher).toBeDefined();
 
-    expect(resources.vaultId).toBeDefined();
-    expect(resources.type).toBeDefined();
-    expect(resources.weight).toBeDefined();
+    expect(persons.name).toBeDefined();
+    expect(persons.personalityPrompt).toBeDefined();
+    expect(persons.memoryText).toBeDefined();
 
-    expect(historyLogs.vaultId).toBeDefined();
-    expect(historyLogs.actionType).toBeDefined();
+    expect(photos.photoKind).toBeDefined();
+    expect(photos.category).toBeDefined();
+    expect(photos.encryptedItem).toBeDefined();
+    expect(photos.encryptedDescription).toBeDefined();
+
+    expect(chatMessages.personId).toBeDefined();
+    expect(chatMessages.encryptedContent).toBeDefined();
+
+    expect(ootdLooks.personId).toBeDefined();
+    expect(ootdLooks.encryptedSlots).toBeDefined();
+    expect(ootdLooks.fitcheckPhotoId).toBeDefined();
 
     expect(apiQuotas.periodMonth).toBeDefined();
     expect(apiQuotas.requestCount).toBeDefined();
@@ -38,7 +54,6 @@ describe('Drizzle Schema & Database Client Initialization', () => {
     const db = await getDatabase();
     expect(db).toBeDefined();
 
-    // Verify open was called with pocketpick.db and a 64-character hex encryption key
     expect(open).toHaveBeenCalledTimes(1);
     const openCall = (open as jest.Mock).mock.calls[0][0];
     expect(openCall.name).toBe('pocketpick.db');

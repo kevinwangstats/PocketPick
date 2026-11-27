@@ -159,3 +159,9 @@ jest.mock(
 jest.mock('@shopify/flash-list', () => ({
   FlashList: 'FlashList',
 }));
+
+jest.mock('expo-local-authentication', () => ({
+  hasHardwareAsync: jest.fn(async () => true),
+  isEnrolledAsync: jest.fn(async () => true),
+  authenticateAsync: jest.fn(async () => ({ success: true })),
+}));

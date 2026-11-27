@@ -3,67 +3,59 @@ import QuickCrypto from 'react-native-quick-crypto';
 
 describe('Ephemeral useSessionStore (Zustand) & Memory Zeroization', () => {
   beforeEach(() => {
-    useSessionStore.getState().lockVault();
+    useSessionStore.getState().lockApp();
   });
 
-  it('initializes with null active vault and key', () => {
+  it('initializes locked with null appSessionKey', () => {
     const state = useSessionStore.getState();
-    expect(state.activeVaultId).toBeNull();
-    expect(state.activeVaultKey).toBeNull();
+    expect(state.isUnlocked).toBe(false);
+    expect(state.appSessionKey).toBeNull();
     expect(state.lastActiveTimestamp).toBeNull();
     expect(state.unlockedAt).toBeNull();
   });
 
-  it('sets active vault, records unlockedAt, and stores the key in memory', () => {
+  it('sets unified appSessionKey, records timestamps, and marks unlocked', () => {
     const key = QuickCrypto.randomBytes(32);
-    useSessionStore.getState().setActiveVault('vault-001', key);
+    useSessionStore.getState().setAppSessionKey(key);
 
     const state = useSessionStore.getState();
-    expect(state.activeVaultId).toBe('vault-001');
-    expect(state.activeVaultKey).toBe(key);
+    expect(state.isUnlocked).toBe(true);
+    expect(state.appSessionKey).toBe(key);
     expect(state.lastActiveTimestamp).toBeGreaterThan(0);
     expect(state.unlockedAt).toBeGreaterThan(0);
   });
 
-  // CRITICAL SECURITY INVARIANT: Zeroization verification
-  it('zeroizes the key buffer when lockVault is called', () => {
+  it('zeroizes the session key buffer when lockApp is called', () => {
     const key = QuickCrypto.randomBytes(32);
     const keyCopy = Buffer.from(key);
 
-    useSessionStore.getState().setActiveVault('vault-001', key);
+    useSessionStore.getState().setAppSessionKey(key);
     expect(key.equals(Buffer.alloc(32, 0))).toBe(false);
 
-    useSessionStore.getState().lockVault();
+    useSessionStore.getState().lockApp();
 
     const state = useSessionStore.getState();
-    expect(state.activeVaultId).toBeNull();
-    expect(state.activeVaultKey).toBeNull();
+    expect(state.isUnlocked).toBe(false);
+    expect(state.appSessionKey).toBeNull();
     expect(state.unlockedAt).toBeNull();
-
-    // Verify the original key buffer in memory was completely wiped with 0x00
     expect(key.equals(Buffer.alloc(32, 0))).toBe(true);
     expect(key.equals(keyCopy)).toBe(false);
   });
 
-  it('zeroizes previous key buffer when switching to a new vault', () => {
+  it('zeroizes previous key buffer when rotating session key', () => {
     const key1 = QuickCrypto.randomBytes(32);
     const key2 = QuickCrypto.randomBytes(32);
 
-    useSessionStore.getState().setActiveVault('vault-001', key1);
-    useSessionStore.getState().setActiveVault('vault-002', key2);
+    useSessionStore.getState().setAppSessionKey(key1);
+    useSessionStore.getState().setAppSessionKey(key2);
 
-    // key1 must now be zeroed
     expect(key1.equals(Buffer.alloc(32, 0))).toBe(true);
-
-    // key2 must be active
-    const state = useSessionStore.getState();
-    expect(state.activeVaultId).toBe('vault-002');
-    expect(state.activeVaultKey).toBe(key2);
+    expect(useSessionStore.getState().appSessionKey).toBe(key2);
   });
 
-  it('updates timestamp on touchActivity', async () => {
+  it('updates lastActiveTimestamp on touchActivity while unlocked', async () => {
     const key = QuickCrypto.randomBytes(32);
-    useSessionStore.getState().setActiveVault('vault-001', key);
+    useSessionStore.getState().setAppSessionKey(key);
     const initialTimestamp = useSessionStore.getState().lastActiveTimestamp;
 
     await new Promise((resolve) => setTimeout(resolve, 10));

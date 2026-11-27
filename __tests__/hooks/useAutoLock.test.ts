@@ -4,7 +4,7 @@ import { useAutoLock } from '@/hooks/useAutoLock';
 import { useSessionStore } from '@/stores/useSessionStore';
 import QuickCrypto from 'react-native-quick-crypto';
 
-describe('useAutoLock Hook & Configurable Timeout Protection', () => {
+describe('useAutoLock Hook & Inactivity Timeout Protection', () => {
   let appStateListener: ((state: AppStateStatus) => void) | null = null;
 
   beforeEach(() => {
@@ -17,7 +17,7 @@ describe('useAutoLock Hook & Configurable Timeout Protection', () => {
       } as unknown as ReturnType<typeof AppState.addEventListener>;
     });
 
-    useSessionStore.getState().lockVault();
+    useSessionStore.getState().lockApp();
   });
 
   afterEach(() => {
@@ -27,28 +27,25 @@ describe('useAutoLock Hook & Configurable Timeout Protection', () => {
 
   it('activates PrivacyShield and wipes session key immediately when timeout is 0', async () => {
     const key = QuickCrypto.randomBytes(32);
-    useSessionStore.getState().setActiveVault('vault-001', key);
+    useSessionStore.getState().setAppSessionKey(key);
 
     const { result } = await renderHook(() => useAutoLock({ lockTimeoutMinutes: 0 }));
     expect(result.current.isShieldActive).toBe(false);
 
-    // Simulate iOS sending app to background
     await act(async () => {
       appStateListener?.('background');
     });
 
     expect(result.current.isShieldActive).toBe(true);
-
-    // Verify key was locked and zeroized from session
     const session = useSessionStore.getState();
-    expect(session.activeVaultId).toBeNull();
-    expect(session.activeVaultKey).toBeNull();
+    expect(session.isUnlocked).toBe(false);
+    expect(session.appSessionKey).toBeNull();
     expect(key.equals(Buffer.alloc(32, 0))).toBe(true);
   });
 
-  it('activates PrivacyShield on inactive transition (e.g. App Switcher reveal)', async () => {
+  it('activates PrivacyShield on inactive transition (App Switcher reveal)', async () => {
     const key = QuickCrypto.randomBytes(32);
-    useSessionStore.getState().setActiveVault('vault-001', key);
+    useSessionStore.getState().setAppSessionKey(key);
 
     const { result } = await renderHook(() => useAutoLock({ lockTimeoutMinutes: 0 }));
 
@@ -57,77 +54,77 @@ describe('useAutoLock Hook & Configurable Timeout Protection', () => {
     });
 
     expect(result.current.isShieldActive).toBe(true);
-    expect(useSessionStore.getState().activeVaultId).toBeNull();
+    expect(useSessionStore.getState().isUnlocked).toBe(false);
   });
 
-  it('keeps vault unlocked on background transition if duration is within timeout', async () => {
+  it('keeps app unlocked on background transition if duration is within timeout', async () => {
     const key = QuickCrypto.randomBytes(32);
-    useSessionStore.getState().setActiveVault('vault-001', key);
+    useSessionStore.getState().setAppSessionKey(key);
 
     const { result } = await renderHook(() => useAutoLock({ lockTimeoutMinutes: 5 }));
 
-    // Send to background
     await act(async () => {
       appStateListener?.('background');
     });
 
-    // Privacy shield covers screen during background
     expect(result.current.isShieldActive).toBe(true);
-    // Key is preserved in memory while within timeout
-    expect(useSessionStore.getState().activeVaultId).toBe('vault-001');
-    expect(useSessionStore.getState().activeVaultKey).not.toBeNull();
+    expect(useSessionStore.getState().isUnlocked).toBe(true);
 
-    // Fast-forward 2 minutes (less than 5)
     jest.advanceTimersByTime(2 * 60 * 1000);
 
-    // Return to active
     await act(async () => {
       appStateListener?.('active');
     });
 
-    // Still unlocked
-    expect(useSessionStore.getState().activeVaultId).toBe('vault-001');
+    expect(useSessionStore.getState().isUnlocked).toBe(true);
   });
 
-  it('locks vault when returning from background after timeout has elapsed', async () => {
+  it('locks app when returning from background after timeout has elapsed', async () => {
     const key = QuickCrypto.randomBytes(32);
-    useSessionStore.getState().setActiveVault('vault-001', key);
+    useSessionStore.getState().setAppSessionKey(key);
 
     await renderHook(() => useAutoLock({ lockTimeoutMinutes: 5 }));
 
-    // Send to background
     await act(async () => {
       appStateListener?.('background');
     });
 
-    // Fast-forward 6 minutes (exceeds 5)
     jest.advanceTimersByTime(6 * 60 * 1000);
 
-    // Return to active
     await act(async () => {
       appStateListener?.('active');
     });
 
-    // Locked and zeroized
-    expect(useSessionStore.getState().activeVaultId).toBeNull();
-    expect(useSessionStore.getState().activeVaultKey).toBeNull();
+    expect(useSessionStore.getState().isUnlocked).toBe(false);
+    expect(useSessionStore.getState().appSessionKey).toBeNull();
   });
 
-  it('automatically locks vault via heartbeat interval while foregrounded after timeout', async () => {
+  it('tracks inactivity rather than login time so active chatting never locks mid-sentence', async () => {
     const key = QuickCrypto.randomBytes(32);
-    useSessionStore.getState().setActiveVault('vault-001', key);
+    useSessionStore.getState().setAppSessionKey(key);
 
     await renderHook(() => useAutoLock({ lockTimeoutMinutes: 2 }));
 
-    expect(useSessionStore.getState().activeVaultId).toBe('vault-001');
-
-    // Fast-forward 2.5 minutes in foreground
-    act(() => {
-      jest.advanceTimersByTime(150 * 1000);
+    // Advance 90 seconds, then simulate user typing/sending activity
+    await act(async () => {
+      jest.advanceTimersByTime(90 * 1000);
+      useSessionStore.getState().touchActivity();
     });
 
-    // Vault locked by periodic timer
-    expect(useSessionStore.getState().activeVaultId).toBeNull();
-    expect(useSessionStore.getState().activeVaultKey).toBeNull();
+    // Advance another 90 seconds (180s total > 2m login time, but only 90s idle < 2m)
+    await act(async () => {
+      jest.advanceTimersByTime(90 * 1000);
+    });
+
+    expect(useSessionStore.getState().isUnlocked).toBe(true);
+    expect(useSessionStore.getState().appSessionKey).not.toBeNull();
+
+    // Now stay genuinely idle for 130 seconds (> 2m idle)
+    await act(async () => {
+      jest.advanceTimersByTime(130 * 1000);
+    });
+
+    expect(useSessionStore.getState().isUnlocked).toBe(false);
+    expect(useSessionStore.getState().appSessionKey).toBeNull();
   });
 });

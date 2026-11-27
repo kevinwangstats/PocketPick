@@ -4,16 +4,15 @@ import { useSessionStore } from '../stores/useSessionStore';
 import { useVaultTimeoutStore } from '../stores/useVaultTimeoutStore';
 
 export interface UseAutoLockOptions {
-  /** Vault open timeout in minutes before auto-locking (defaults to configured system setting). */
+  /** Inactivity timeout in minutes before auto-locking (defaults to configured system setting). */
   lockTimeoutMinutes?: number;
-  /** Direct timeout in milliseconds (legacy / unit testing support). */
+  /** Direct timeout in milliseconds (unit testing support). */
   lockTimeoutMs?: number;
 }
 
 export function useAutoLock(options: UseAutoLockOptions = {}) {
   const storeTimeoutMinutes = useVaultTimeoutStore((state) => state.timeoutMinutes);
 
-  // Compute effective timeout in milliseconds
   let effectiveTimeoutMs: number;
   if (options.lockTimeoutMs !== undefined) {
     effectiveTimeoutMs = options.lockTimeoutMs;
@@ -24,19 +23,21 @@ export function useAutoLock(options: UseAutoLockOptions = {}) {
   }
 
   const [isShieldActive, setIsShieldActive] = useState(false);
-  const lockVault = useSessionStore((state) => state.lockVault);
+  const lockApp = useSessionStore((state) => state.lockApp);
   const backgroundTimestampRef = useRef<number | null>(null);
 
-  // Periodic in-app timer to lock vault once X minutes have elapsed in foreground
+  // Periodic in-app timer checks INACTIVITY (lastActiveTimestamp) rather than login time
+  // so active chatting or dressing never triggers an abrupt mid-sentence lock.
   useEffect(() => {
     if (effectiveTimeoutMs <= 0) return;
 
     const intervalId = setInterval(() => {
-      const { activeVaultKey, unlockedAt } = useSessionStore.getState();
-      if (activeVaultKey && unlockedAt) {
-        const elapsed = Date.now() - unlockedAt;
-        if (elapsed >= effectiveTimeoutMs) {
-          lockVault();
+      const { appSessionKey, lastActiveTimestamp, unlockedAt } = useSessionStore.getState();
+      const referenceTime = lastActiveTimestamp ?? unlockedAt;
+      if (appSessionKey && referenceTime) {
+        const idleElapsed = Date.now() - referenceTime;
+        if (idleElapsed >= effectiveTimeoutMs) {
+          lockApp();
         }
       }
     }, 1000);
@@ -44,34 +45,34 @@ export function useAutoLock(options: UseAutoLockOptions = {}) {
     return () => {
       clearInterval(intervalId);
     };
-  }, [lockVault, effectiveTimeoutMs]);
+  }, [lockApp, effectiveTimeoutMs]);
 
   // AppState monitoring for backgrounding and app-switcher protection
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'background' || nextAppState === 'inactive') {
-        // App is moving out of focus: Activate Privacy Shield immediately
         setIsShieldActive(true);
         backgroundTimestampRef.current = Date.now();
 
         if (effectiveTimeoutMs === 0) {
-          // Zeroize keys immediately on background
-          lockVault();
+          lockApp();
         }
       } else if (nextAppState === 'active') {
         const now = Date.now();
         const bgTime = backgroundTimestampRef.current;
-        const { activeVaultKey, unlockedAt } = useSessionStore.getState();
+        const { appSessionKey, lastActiveTimestamp, unlockedAt } = useSessionStore.getState();
 
-        if (activeVaultKey && effectiveTimeoutMs > 0) {
-          const totalElapsed = unlockedAt ? now - unlockedAt : bgTime ? now - bgTime : 0;
-          if (totalElapsed >= effectiveTimeoutMs) {
-            lockVault();
+        if (appSessionKey && effectiveTimeoutMs > 0) {
+          const referenceTime = lastActiveTimestamp ?? unlockedAt;
+          const idleElapsed = bgTime ? now - bgTime : referenceTime ? now - referenceTime : 0;
+          if (idleElapsed >= effectiveTimeoutMs) {
+            lockApp();
+          } else {
+            useSessionStore.getState().touchActivity();
           }
         }
         backgroundTimestampRef.current = null;
 
-        // Dismiss privacy shield shortly after regaining active focus
         setTimeout(() => {
           setIsShieldActive(false);
         }, 150);
@@ -82,7 +83,7 @@ export function useAutoLock(options: UseAutoLockOptions = {}) {
     return () => {
       subscription.remove();
     };
-  }, [lockVault, effectiveTimeoutMs]);
+  }, [lockApp, effectiveTimeoutMs]);
 
   return {
     isShieldActive,

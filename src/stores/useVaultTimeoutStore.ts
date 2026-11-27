@@ -1,9 +1,9 @@
 import { create } from 'zustand';
 import {
-  getVaultTimeoutMinutes,
-  setVaultTimeoutMinutes as persistTimeout,
-  DEFAULT_VAULT_TIMEOUT_MINUTES,
-} from '../services/vault/vaultTimeoutService';
+  getAutoLockTimeoutMinutes,
+  setAutoLockTimeoutMinutes as persistTimeout,
+  DEFAULT_AUTO_LOCK_MINUTES,
+} from '../services/auth/autoLockService';
 
 export interface VaultTimeoutState {
   timeoutMinutes: number;
@@ -13,11 +13,11 @@ export interface VaultTimeoutState {
 }
 
 export const useVaultTimeoutStore = create<VaultTimeoutState>((set) => ({
-  timeoutMinutes: DEFAULT_VAULT_TIMEOUT_MINUTES,
+  timeoutMinutes: DEFAULT_AUTO_LOCK_MINUTES,
   isLoaded: false,
 
   loadTimeout: async () => {
-    const mins = await getVaultTimeoutMinutes();
+    const mins = await getAutoLockTimeoutMinutes();
     set({ timeoutMinutes: mins, isLoaded: true });
   },
 

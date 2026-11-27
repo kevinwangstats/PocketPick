@@ -9,7 +9,10 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "bundleIdentifier": "com.pocketpick.app",
-      "supportsTablet": false
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Use Face ID to quickly unlock your private PocketPick OOTD wardrobe and chats."
+      }
     },
     "android": {
       "package": "com.pocketpick.app",

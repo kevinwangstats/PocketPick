@@ -11,10 +11,11 @@ describe('vaultTimeoutService', () => {
     jest.clearAllMocks();
   });
 
-  it('returns default 5 minutes if no value stored in SecureStore', async () => {
+  it('returns default 15 minutes if no value stored in SecureStore', async () => {
     jest.spyOn(SecureStore, 'getItemAsync').mockResolvedValueOnce(null);
     const timeout = await getVaultTimeoutMinutes();
     expect(timeout).toBe(DEFAULT_VAULT_TIMEOUT_MINUTES);
+    expect(timeout).toBe(15);
   });
 
   it('returns parsed integer from SecureStore', async () => {
