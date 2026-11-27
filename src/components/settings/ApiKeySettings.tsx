@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Pressable, Alert, Text } from 'react-native';
+import { View, Text, Alert, Pressable } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { Card, Button, Input, Label, Mono, Body, H2 } from '../ui';
 import {
   getOpenRouterApiKey,
   setOpenRouterApiKey,
   removeOpenRouterApiKey,
   getOpenRouterModel,
   setOpenRouterModel,
+  maskApiKey,
   OPENROUTER_MODEL_PRESETS,
   DEFAULT_OPENROUTER_MODEL,
-  maskApiKey,
 } from '../../services/llm/llmKeyStore';
-import { Card, H2, Label, Body, Mono, Input, Button } from '../ui';
 import { useTheme } from '../../theme';
 
 export function ApiKeySettings() {
@@ -19,9 +19,7 @@ export function ApiKeySettings() {
   const [currentKey, setCurrentKey] = useState<string | null>(null);
   const [inputKey, setInputKey] = useState('');
   const [activeModel, setActiveModel] = useState<string>(DEFAULT_OPENROUTER_MODEL);
-  const [customModelInput, setCustomModelInput] = useState('');
   const [isSavingKey, setIsSavingKey] = useState(false);
-  const [isSavingModel, setIsSavingModel] = useState(false);
 
   const loadSettings = useCallback(async () => {
     const key = await getOpenRouterApiKey();
@@ -72,7 +70,6 @@ export function ApiKeySettings() {
   const handleSelectModelPreset = async (modelId: string) => {
     Haptics.selectionAsync().catch(() => {});
     setActiveModel(modelId);
-    setCustomModelInput('');
     try {
       await setOpenRouterModel(modelId);
     } catch (err: unknown) {
@@ -80,29 +77,12 @@ export function ApiKeySettings() {
     }
   };
 
-  const handleSaveCustomModel = async () => {
-    const trimmed = customModelInput.trim();
-    if (!trimmed) return;
-    setIsSavingModel(true);
-    try {
-      await setOpenRouterModel(trimmed);
-      setActiveModel(trimmed);
-      setCustomModelInput('');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      Alert.alert('Model Updated', `Active OpenRouter model set to: ${trimmed}`);
-    } catch (err: unknown) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to set custom model');
-    } finally {
-      setIsSavingModel(false);
-    }
-  };
-
   return (
     <Card className="p-5 mb-6">
       <H2 className="mb-1">OPENROUTER GATEWAY</H2>
       <Body className="text-xs mb-4">
-        Access Gemini, DeepSeek, Kimi, and 400+ models via a single API key and unified wallet on
-        openrouter.ai. Stored in hardware-backed iOS Keychain.
+        Powered by OpenRouter with Grok 4.7 as default (and Gemini 3.8 Flash optional). Stored
+        exclusively in hardware-backed iOS Keychain.
       </Body>
 
       {/* Key Status */}
@@ -161,7 +141,7 @@ export function ApiKeySettings() {
 
       {/* Model Selection */}
       <Label className="mb-2">ACTIVE MODEL SELECTION</Label>
-      <View className="flex-row flex-wrap gap-2 mb-3">
+      <View className="flex-row flex-wrap gap-2 mb-4">
         {OPENROUTER_MODEL_PRESETS.map((preset) => {
           const isSelected = activeModel === preset.id;
 
@@ -176,8 +156,8 @@ export function ApiKeySettings() {
                 borderWidth: isSelected ? 2 : 1,
                 borderColor: isSelected ? theme.colors.accent : theme.colors.cardBorder,
                 backgroundColor: isSelected ? theme.colors.badgeBg : theme.colors.card,
-                paddingVertical: 8,
-                paddingHorizontal: 10,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
               }}
               className="flex-1 min-w-[45%] active:opacity-85"
             >
@@ -229,32 +209,9 @@ export function ApiKeySettings() {
           borderRadius: theme.borderRadius ? 8 : 0,
           padding: 10,
         }}
-        className="mb-4"
       >
         <Label className="text-[10px]">CURRENT TARGET ENDPOINT</Label>
         <Mono className="text-xs mt-0.5">openrouter: {activeModel}</Mono>
-      </View>
-
-      {/* Custom Model ID Entry */}
-      <Label className="mb-2">OR SPECIFY CUSTOM OPENROUTER MODEL</Label>
-      <View className="flex-row gap-2">
-        <View className="flex-1">
-          <Input
-            value={customModelInput}
-            onChangeText={setCustomModelInput}
-            placeholder="e.g. anthropic/claude-3.5-sonnet"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </View>
-        <Button
-          variant="secondary"
-          disabled={!customModelInput.trim()}
-          loading={isSavingModel}
-          onPress={handleSaveCustomModel}
-        >
-          SET
-        </Button>
       </View>
     </Card>
   );

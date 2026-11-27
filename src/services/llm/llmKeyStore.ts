@@ -2,7 +2,18 @@ import * as SecureStore from 'expo-secure-store';
 
 export const OPENROUTER_API_KEY_STORAGE_KEY = 'POCKETPICK_OPENROUTER_API_KEY';
 export const OPENROUTER_MODEL_STORAGE_KEY = 'POCKETPICK_OPENROUTER_MODEL';
-export const DEFAULT_OPENROUTER_MODEL = 'google/gemini-2.5-flash';
+export const DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.7';
+
+export const ALLOWED_OPENROUTER_MODELS = ['x-ai/grok-4.7', 'google/gemini-3.8-flash'] as const;
+
+export type AllowedOpenRouterModel = (typeof ALLOWED_OPENROUTER_MODELS)[number];
+
+/**
+ * Checks whether a model ID is one of the allowed OpenRouter models.
+ */
+export function isAllowedOpenRouterModel(modelId: string): boolean {
+  return (ALLOWED_OPENROUTER_MODELS as readonly string[]).includes(modelId);
+}
 
 // Legacy keys for migration support
 const LEGACY_STORAGE_KEYS = [
@@ -22,31 +33,17 @@ export interface ModelPreset {
 
 export const OPENROUTER_MODEL_PRESETS: ModelPreset[] = [
   {
-    id: 'google/gemini-2.5-flash',
-    label: 'GEMINI 2.5 FLASH',
-    providerLabel: 'Google',
-    description: 'Fast, multimodal vision & long-context',
+    id: 'x-ai/grok-4.7',
+    label: 'GROK 4.7',
+    providerLabel: 'xAI',
+    description: 'Default expressive stylist & multimodal vision',
     multimodal: true,
   },
   {
-    id: 'deepseek/deepseek-chat',
-    label: 'DEEPSEEK V3',
-    providerLabel: 'DeepSeek',
-    description: 'Top-tier general reasoning & coding',
-    multimodal: false,
-  },
-  {
-    id: 'deepseek/deepseek-r1',
-    label: 'DEEPSEEK R1',
-    providerLabel: 'DeepSeek',
-    description: 'Advanced chain-of-thought reasoning',
-    multimodal: false,
-  },
-  {
-    id: 'moonshotai/kimi-k2.6',
-    label: 'KIMI K2.6',
-    providerLabel: 'Moonshot AI',
-    description: 'Long-context multimodal reasoning',
+    id: 'google/gemini-3.8-flash',
+    label: 'GEMINI 3.8 FLASH',
+    providerLabel: 'Google',
+    description: 'Fast multimodal vision & long-context',
     multimodal: true,
   },
 ];
@@ -111,23 +108,28 @@ export async function isOpenRouterKeyConfigured(): Promise<boolean> {
 }
 
 /**
- * Retrieves the configured OpenRouter model (default: google/gemini-2.5-flash).
+ * Retrieves the configured OpenRouter model (restricted to allowed models, default: x-ai/grok-4.7).
  */
 export async function getOpenRouterModel(): Promise<string> {
   const model = await SecureStore.getItemAsync(OPENROUTER_MODEL_STORAGE_KEY);
-  if (model && model.trim().length > 0) {
+  if (model && isAllowedOpenRouterModel(model.trim())) {
     return model.trim();
   }
   return DEFAULT_OPENROUTER_MODEL;
 }
 
 /**
- * Saves the selected OpenRouter model ID.
+ * Saves the selected OpenRouter model ID if allowed.
  */
 export async function setOpenRouterModel(model: string): Promise<void> {
   const trimmed = model.trim();
   if (!trimmed) {
     throw new Error('Model identifier cannot be empty');
+  }
+  if (!isAllowedOpenRouterModel(trimmed)) {
+    throw new Error(
+      `Model "${trimmed}" is not allowed. Only Grok 4.7 and Gemini 3.8 Flash are enabled.`,
+    );
   }
   await SecureStore.setItemAsync(OPENROUTER_MODEL_STORAGE_KEY, trimmed);
 }

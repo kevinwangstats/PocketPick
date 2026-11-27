@@ -7,7 +7,11 @@ export interface QuotaStatus {
 }
 
 export class QuotaExceededError extends Error {
-  constructor(message = 'Monthly LLM quota exceeded (100 requests max). Operation blocked.') {
+  constructor(limitOrMessage: number | string = 500) {
+    const message =
+      typeof limitOrMessage === 'number'
+        ? `Monthly LLM quota exceeded (${limitOrMessage} requests max). Operation blocked.`
+        : limitOrMessage;
     super(message);
     this.name = 'QuotaExceededError';
   }

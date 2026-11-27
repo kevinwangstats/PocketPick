@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View } from 'react-native';
-import { getQuotaStatus, MAX_MONTHLY_QUOTA } from '../../services/quota/quotaManager';
+import { getQuotaStatus, DEFAULT_MONTHLY_QUOTA } from '../../services/quota/quotaManager';
 import { QuotaStatus } from '../../services/quota/types';
 import { Card, H2, Label, Body, Mono } from '../ui';
 import { useTheme } from '../../theme';
@@ -23,7 +23,7 @@ export function QuotaProgressCard() {
   };
 
   const currentCount = quota?.currentCount ?? 0;
-  const maxLimit = quota?.maxLimit ?? MAX_MONTHLY_QUOTA;
+  const maxLimit = quota?.maxLimit ?? DEFAULT_MONTHLY_QUOTA;
   const percentage = Math.min(100, Math.round((currentCount / maxLimit) * 100));
 
   return (
@@ -64,7 +64,7 @@ export function QuotaProgressCard() {
           {currentCount} / {maxLimit} REQUESTS
         </Mono>
         <Mono style={{ color: theme.colors.textMuted }} className="text-xs">
-          {quota?.remaining ?? MAX_MONTHLY_QUOTA} REMAINING
+          {quota?.remaining ?? DEFAULT_MONTHLY_QUOTA} REMAINING
         </Mono>
       </View>
     </Card>

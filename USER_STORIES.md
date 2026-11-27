@@ -1,219 +1,162 @@
-# PocketPick — Living User Stories & Feature Specifications
+# PocketPick OOTD — Living User Stories & Feature Specifications
 
-> **Living Document Notice:** This document reflects the active, current state of user requests and features in PocketPick. Whenever new feedback or requests replace previous behavior, specifications are directly edited to maintain a single source of truth without accumulating obsolete historical states.
-
----
-
-## 1. Vault Management & Security
-
-### US-001: Unique Vault Naming
-
-- **User Request:** _"Vaults should not share the same name"_
-- **User Story:**
-  - _As a_ user managing multiple secure vaults,
-  - _I want_ the system to prevent creating vaults with duplicate names,
-  - _So that_ I do not get confused between vaults or risk saving confidential data into the wrong context.
-- **Acceptance Criteria:**
-  - When creating a new vault in `CreateVaultModal`, the entered name is checked against existing vault names (case-insensitive, trimmed).
-  - If a duplicate name is entered, creation is blocked and an inline warning indicates that a vault with that name already exists.
-  - Vault creation proceeds only when the name is unique.
-
-### US-002: Swipe-to-Reveal Vault Deletion with Two-Step Confirmation
-
-- **User Request:** _"There is currently no way to delete a vault"_ and _"the delete button for vault should show via swipe, requiring a second confirmation"_
-- **User Story:**
-  - _As a_ security-conscious user,
-  - _I want_ to delete a vault by swiping left on its card to reveal a delete action, followed by a mandatory two-step confirmation,
-  - _So that_ I can permanently purge unneeded vaults without accidental triggering or static visual clutter.
-- **Acceptance Criteria:**
-  - In the Vaults list, each `VaultCard` supports a horizontal swipe-left gesture revealing a red `[ DELETE ]` action button.
-  - Tapping outside or tapping the open card snaps it closed.
-  - Vertical list scrolling is not interrupted while swiping horizontally.
-  - Initiating deletion triggers a **Step 1** alert: _"Delete Vault: Are you sure you want to delete '[name]'?"_
-  - Confirming triggers a mandatory **Step 2** alert: _"Confirm Permanent Deletion: FINAL WARNING: All encrypted notes, photos, and cryptographic keys will be permanently shredded from storage. This action cannot be undone. Proceed?"_
-  - Upon final confirmation, all encrypted files on disk are shredded via `shredFile`, database cascade deletion removes records, session lock is triggered, and a success haptic is fired.
+> **Living Document Notice:** This document reflects the active, current state of user requests and features for the OOTD evolution of PocketPick. Whenever new feedback or requests replace previous behavior, specifications are directly edited to maintain a single source of truth without accumulating obsolete historical states.
 
 ---
 
-## 2. Media & Photo Pipeline
+## 1. Architecture Overview (Clean-Slate OOTD Engine on Proven Native Kernel)
 
-### US-003: Multi-Selection Photo Import
+PocketPick OOTD is an encrypted, iOS-sandboxed **Outfit of the Day (OOTD)** companion app centered around configurable **AI Designer Personalities ("Persons")** and a decoupled **Outfit Picking Engine** built atop the app's native JSI C++ cryptography, SQLCipher database, Keychain storage, and OpenRouter gateway.
 
-- **User Request:** _"photo selection should allow multiple selection"_
-- **User Story:**
-  - _As a_ user adding visual evidence or archives to my vault,
-  - _I want_ to select multiple photos simultaneously from the system photo picker,
-  - _So that_ I can import photos in bulk without having to reopen the picker individually for each picture.
-- **Acceptance Criteria:**
-  - The photo picker in `EncryptedGallery` configures `allowsMultipleSelection: true`.
-  - The user can select multiple images in a single picker session.
-  - All selected images are queued, processed through the encryption pipeline, and imported into the active vault.
-
-### US-004: Blind-Index Photo Deduplication
-
-- **User Request:** _"Repeated photos should not be imported from a user's perspective. Can this be done?"_
-- **User Story:**
-  - _As a_ user,
-  - _I want_ PocketPick to prevent importing duplicate photos into the same vault,
-  - _So that_ I do not waste vault storage or clutter my gallery with duplicate entries.
-- **Acceptance Criteria:**
-  - **Zero-Leak Deduplication:** In `imagePipeline.ts`, an `HMAC-SHA256` hash of raw image bytes is calculated using the vault session key (`computeImageHash`). Plaintext image hashes are never exposed in SQLite.
-  - **Pre-Encryption Guard:** Before encrypting or storing thumbnails, SQLite checks for an existing record with matching `(vault_id, file_hash)`.
-  - **Duplicate Handling:** If duplicate bytes are detected:
-    - Re-encryption and file writing are skipped.
-    - Temporary cache files are immediately shredded in `finally`.
-    - Returns `{ isDuplicate: true }`.
-  - **In-Batch Deduplication:** Multi-selection picker batches are deduplicated in-memory so identical selections within the same batch are imported only once.
-  - **User Feedback:**
-    - If 1 duplicate is picked: _"This photo is already stored in your vault."_
-    - If a batch has duplicates: _"Imported X photos. Y duplicate photo(s) were skipped."_
-
-### US-005: Photo Text Association with User Typing & AI Suggestions
-
-- **User Request:** _"And each photo should be associated with some text, that either the user can type in, or have the LLM function add in suggestions and allow user to customize the returned response."_
-- **User Story:**
-  - _As a_ user storing photos in a vault,
-  - _I want_ each photo to have associated text notes that I can either type manually or generate via AI suggestions, and freely customize before saving,
-  - _So that_ my photos carry meaningful context, searchable keywords, and transcribed details.
-- **Acceptance Criteria:**
-  - **Authenticated Encryption:** Photo text is encrypted with AES-256-GCM using the vault key and stored in `encrypted_payload`, `payload_iv`, and `payload_tag` on the photo resource row.
-  - **Manual Input:** When inspecting a photo in `FullImageModal`, an editable text input allows typing custom notes and saving via `[ SAVE NOTE ]`.
-  - **AI Suggestions:** Tapping `+ AI SUGGEST` runs ephemeral OCR on the decrypted photo bytes, retrieves the vault's master prompt, queries the LLM, and populates the text field with the suggestion.
-  - **Customization Before Save:** The user can inspect, tweak, rewrite, or append to the AI-generated text before pressing `[ SAVE NOTE ]`.
-  - **Visual Badges:** Photos with saved notes display a `NOTE` tag on their gallery thumbnail.
-  - **Randomizer Display:** When a photo with associated text is picked, the decrypted text is displayed on the winning card.
+1. **Private Media Store (`Wardrobe` vs. `Past OOTD`):** App-only encrypted photos optimized to crisp `1600px` full / `320px` thumb, automatically sorted by AI human-body detection with one-tap Undo and zero writes to iOS Photos.
+2. **Decoupled Outfit Picking Engine (`src/engine/`):** Standalone pure engine governing the strict 5 wardrobe categories (`top`, `bottom`, `underwear`, `hosiery`, `others`), natural-language constraints (`"/ootd with no top and no pants"`), `bra` + `panties` sub-type pairing, hardware CSPRNG, `/style` AI curation, slot locking/swapping, anti-repeat cooldown, and 100% offline `/ootd` resilience.
+3. **Designer Persona, Plain-Text Memory & Chat Layer:** AI Persons with encrypted portraits, personality prompts, Tone/Sensuality dials, extensible plain-text per-person Memory viewable/editable in `Settings`, and WhatsApp-style encrypted chat with single-pass multimodal vision + auto-learning memory (1 OpenRouter request per turn).
+4. **Zero-Leak Security & Portability:** Unified App Master Passphrase + opt-in Face ID / Touch ID quick unlock, inactivity-based non-destructive lock overlay, `PrivacyShield`, and chunked OOM-safe encrypted `.ootdbackup` iPhone-to-iPhone export & import.
 
 ---
 
-## 3. Random Selection & Decision Engine
+## 2. Core User Stories (`US-101` – `US-111`)
 
-### US-006: In-Vault & Tab Random Selection (Strictly Uniform & Fast)
+### US-101: OpenRouter Unified Gateway with Grok Default & Single-Pass Efficiency
 
-- **User Request:** _"The pick functinoality is good, but it should be done within each vault."_, _"picker should always use uniform selection, remove weighted functionality"_, and _"the picker should work a little fater."_
 - **User Story:**
-  - _As a_ user selecting an item from my vault,
-  - _I want_ the picker to operate directly inside the vault, execute quickly, and always select items with strictly uniform equal probability (1/N),
-  - _So that_ selection is fast, unbiased, and free of unnecessary weighting complexity.
+  - _As a_ user chatting and tagging photos daily,
+  - _I want_ OpenRouter to use **Grok** (`x-ai/grok-4.7`) by default, support multi-turn multimodal conversations, and avoid wasteful extra API calls when learning memories or classifying chat photos,
+  - _So that_ responses are fast, expressive, and economical with my monthly quota.
 - **Acceptance Criteria:**
-  - **In-Vault Availability:** Inside `VaultDetailScreen` (`src/app/vault/[id].tsx`), a dedicated **`[ PICK ]`** segmented tab is available alongside **`[ TICKETS ]`** and **`[ PHOTOS ]`**.
-  - **Strictly Uniform Selection:** The selection algorithm always uses `pickUniform` via unbiased hardware CSPRNG rejection sampling. Weighted selection functionality is completely removed from the picker engine and UI.
-  - **Snappy Animation Speed:** The shuffle animation duration is reduced to a fast, tactile ~450ms (initial 25ms delay, 8 ticks, smooth deceleration), delivering quick results while maintaining haptic feedback.
-  - **Pool Filtering:** Users can filter the eligible pool by item type (**`ALL`**, **`TICKETS`**, or **`PHOTOS`**).
-  - **Decrypted Winner Display:** Shows the winning ticket text or photo thumbnail with its decrypted notes on `WinnerCard` labeled `MODE: UNIFORM (1/N)`.
+  - OpenRouter API key remains stored in hardware-backed iOS Keychain (`POCKETPICK_OPENROUTER_API_KEY`) targeting `https://openrouter.ai/api/v1/chat/completions`.
+  - `DEFAULT_OPENROUTER_MODEL = 'x-ai/grok-4.7'`; `google/gemini-3.8-flash` remains selectable as a preset in `Settings`.
+  - `llmClient.ts` supports multi-turn `messages` (`system`, `user`, `assistant`) + crisp `1024px` multimodal `image_url` payloads.
+  - Chat replies piggyback hidden `<memory_add>` and `<photo_meta>` tags parsed & stripped before display so **1 chat turn = 1 OpenRouter call**.
+  - Monthly quota barrier is configurable in `Settings` (default **500 requests/month**).
+
+### US-102: AI Person (Persona) Creation, Encrypted Portrait & Personality Prompt
+
+- **User Story:**
+  - _As a_ user creating my personal styling circle,
+  - _I want_ each AI stylist to be a dedicated **Person** with a unique name, encrypted portrait photo, bio tagline, and configurable personality prompt (plus starter presets),
+  - _So that_ every conversation and outfit pick feels distinct and tailored to my taste.
+- **Acceptance Criteria:**
+  - Create/edit Person with unique name (case-insensitive), portrait avatar photo (private camera or library, encrypted in app sandbox only), tagline, Tone/Sensuality chips, curated Designer Personality presets, and free-text Personality Prompt.
+  - Authoritative Personality Prompt is injected at highest system-role priority on every chat, photo critique, and `/ootd`.
+  - Swipe-left deletion requires two-step confirmation and permanently shreds avatar, chat logs, and memories.
+
+### US-103: Four-Tab Navigation (`Chats`, `Wardrobe`, `Past OOTD`, `Settings`) & Day-1 Onboarding
+
+- **User Story:**
+  - _As a_ new or returning user,
+  - _I want_ four clear bottom tabs (**`Chats`**, **`Wardrobe`**, **`Past OOTD`**, **`Settings`**) and a gentle Day-1 Quick Start guide,
+  - _So that_ I never hit dead-end empty screens or missing-API-key errors on my first launch.
+- **Acceptance Criteria:**
+  - Bottom tabs: `Chats` (`index.tsx`), `Wardrobe` (`wardrobe.tsx`), `Past OOTD` (`past-ootd.tsx`), `Settings` (`settings.tsx`).
+  - All legacy PocketPick tabs (`Tickets`, `Randomizer/Pick`, `Timeline/History`) and multi-vault routes are removed.
+  - When unconfigured (missing API key, 0 Persons, or 0 Wardrobe items), `Chats` displays a dismissible **Quick Start Checklist** (1. Add OpenRouter Key → 2. Create First Stylist → 3. Add Wardrobe Photos).
+
+### US-104: Frictionless Unified App Lock with Opt-In Face ID & Non-Destructive Inactivity Timeout
+
+- **User Story:**
+  - _As a_ daily user unlocking the app multiple times a day (including while getting dressed for a fit check),
+  - _I want_ one App Master Passphrase backed by **opt-in Face ID / Touch ID quick unlock**, an **inactivity-based** auto-lock timer (default 15m, configurable), and a non-destructive lock overlay,
+  - _So that_ my private wardrobe and chats stay cryptographically protected without ever kicking me out mid-sentence or forcing tedious passphrase re-entry while dressing.
+- **Acceptance Criteria:**
+  - First launch creates the Unified App Master Passphrase (`PBKDF2-HMAC-SHA512`, 100k rounds) deriving the 256-bit `appSessionKey`.
+  - Opt-in **Face ID / Touch ID** toggle in `Settings` unlocks the app in one glance while keeping Master Passphrase as fallback.
+  - `useAutoLock` tracks **user inactivity (`lastActiveTimestamp`)** rather than login time (`unlockedAt`) so active chatting never triggers a mid-typing lock.
+  - `AppLockGate` renders as an overlay above the navigation tree so unlocking restores the exact active chat, scroll position, and unsent draft.
+
+### US-105: Messenger / WhatsApp-Style Encrypted Chat with Optimistic Save & Retry
+
+- **User Story:**
+  - _As a_ user chatting with any AI Person,
+  - _I want_ a WhatsApp/Messenger-style chat where I can send text and photos securely on-device, with zero lost messages if Wi-Fi drops,
+  - _So that_ my intimate conversations feel responsive, private, and reliable anywhere.
+- **Acceptance Criteria:**
+  - `chat/[id].tsx` renders right-aligned user bubbles, left-aligned Person bubbles with mini avatar, timestamps, tappable encrypted photo thumbnails, typing indicator, and per-person unsent draft preservation across tab switches.
+  - Composer supports multi-line text, `+` attachment menu (**Private Camera**, **Import from Device**, **Pick from `Wardrobe` / `Past OOTD`**), staged preview, and quick command bar (`✨ OOTD`, `/secret`, `/style`).
+  - Messages persist locally in SQLCipher `chat_messages` with **AES-256-GCM** encryption (12-byte IV, 16-byte Tag, AAD = `personId`).
+  - User messages and photos save locally before calling OpenRouter; on failure, an inline **`[ Retry ]`** prompt appears without losing the user's message.
+  - Deleted garments referenced in older chats render a graceful **Tombstone Placeholder** (`[Removed from Wardrobe — "<item>"]`).
+
+### US-106: App-Only Private Photos, Strict Categories, `item`, `descriptions` & Batch AI Auto-Tagging
+
+- **User Story:**
+  - _As a_ privacy-focused user organizing dozens of garments inside the app,
+  - _I want_ photos stored **only inside the app sandbox** (never in iOS Photos, with zero raw Share Sheet leak traps), optimized for speed, tagged with a strict **category**, **`item`** label, and editable **`descriptions`**, plus fast batch AI auto-tagging,
+  - _So that_ importing my closet takes seconds instead of tedious manual per-photo editing.
+- **Acceptance Criteria:**
+  - Camera captures and imports resize cleanly to `1600px` full-res + `320px` thumbnail, encrypt via AES-256-GCM into sandbox-relative `.enc` files, and unconditionally shred temp files in `finally`. Zero writes to Apple Photos; single-photo raw AirDrop/Share is removed so intimate photos cannot leak to iOS Photos.
+  - **Strict 5-Category Enum (Wardrobe):** `top`, `bottom`, `underwear`, `hosiery`, `others`.
+  - **`item` Field:** AES-256-GCM encrypted garment label (`"tshirt"`, `"pants"`, `"bra"`, `"panties"`, `"sheer thigh-highs"`). Quick chips for `underwear` surface canonical sub-types (`Bra`, `Bralette`, `Panties`, `Thong`, `Lingerie Set`, `Bodysuit`).
+  - **`descriptions` Field:** AES-256-GCM encrypted notes editable manually or populated via **`AI Suggestion`** and freely customized before pressing `Save`.
+  - Importing/capturing while a category filter pill is active automatically assigns that category to the batch; a cancellable **`✨ Auto-Analyze Unsorted (N)`** banner runs concurrent AI classification with quota preview.
+  - Supports multi-select bulk move, bulk recategorize, bulk delete, and `HMAC-SHA256` blind-index deduplication.
+
+### US-107: Multimodal Vision Replies to Attached Chat Photos + Text
+
+- **User Story:**
+  - _As a_ user attaching a photo in chat with a Person,
+  - _I want_ her to visually read both the attached photo and my text message (plus recent conversation & her Personal Memory) in a single crisp response,
+  - _So that_ she comments authentically on what she sees and answers what I wrote.
+- **Acceptance Criteria:**
+  - Attached photo is decrypted in memory (resized to max `1024px` JPEG) and sent via OpenRouter `image_url` + `text` alongside recent chat turns, the Person's authoritative prompt, and her Plain-Text Memory.
+  - Plaintext buffers are immediately discarded after the request completes.
+
+### US-108: Constraint-Aware `/ootd` Engine, Quick-Builder Sheet, Bra+Panties Pairing & Offline Support
+
+- **User Story:**
+  - _As a_ user requesting an outfit via `/ootd` (whether typing `"/ootd with no top and no pants"` or tapping quick visual toggles),
+  - _I want_ any Person to pick strictly from **`Wardrobe`** items (never `Past OOTD` body shots), honor every exclusion/inclusion, pair **1 bra + 1 panties** when appropriate, adapt her reply to her personality prompt + recent chats + memory, and still pick offline via CSPRNG if I have no internet,
+  - _So that_ getting an outfit is effortless on an iPhone keyboard and always matches exactly what I asked for.
+- **Acceptance Criteria:**
+  - Supports both natural-language `/ootd [constraints]` and a 1-tap **`✨ OOTD` Quick-Builder Sheet** (`Top`, `Bottom`, `Bra`, `Panties`, `Hosiery`, `Others` toggles + `Bra & Panties Only` preset + `Random` vs `AI Styled`).
+  - Synonym exclusions (`no top`, `no shirt`, `no pants`, `no bottom`, `no hosiery`, `no underwear`, `no others`) and inclusions (`only bra and panties`) resolve cleanly.
+  - When `bra` & `panties` are requested—or when `top` & `bottom` are excluded and `underwear` contains both bra-type and panty-type items—the engine selects **1 bra + 1 panties** as two distinct slots.
+  - Excluded categories are strictly omitted from both the OOTD Look Card and AI commentary.
+  - Works 100% offline locally via hardware CSPRNG (`csprng.ts`) with a `[ Generate Styling Note ]` retry button.
+
+### US-109: AI Human-Body Subject Classification (`Wardrobe` vs. `Past OOTD`) with Undo Toast
+
+- **User Story:**
+  - _As a_ user adding both isolated garment photos and mirror try-on photos,
+  - _I want_ AI vision to detect whether a **human body is the main subject**—routing isolated garments into **`Wardrobe`** and on-body try-on/mirror shots into **`Past OOTD`**, with a clear toast + one-tap **`Undo`** so photos never mysteriously vanish,
+  - _So that_ my garment catalog and worn lookbook organize themselves accurately without surprises.
+- **Acceptance Criteria:**
+  - Every photo has `photoKind: 'wardrobe' | 'past_ootd'`.
+  - AI classification evaluates `hasHumanBodyMainSubject: boolean`: `false` → `Wardrobe`, `true` → `Past OOTD`.
+  - When auto-sorting moves photo(s) out of the currently viewed tab, a toast appears: `"Moved N photo(s) to Past OOTD (human body detected) [ View ] [ Undo ]"`.
+  - Manual one-tap **`Move to Wardrobe`** / **`Move to Past OOTD`** is always available in `PhotoDetailModal` and bulk selection.
+
+### US-110: Per-Personality Extensible Plain-Text Living Memory (Viewable & Editable in `Settings`)
+
+- **User Story:**
+  - _As a_ user building chemistry with each AI Person,
+  - _I want_ each Person to maintain her own **distinct, plain-text preference memory** (styles I like, favorite colors, fabrics that make me feel special and tingle, custom evolving sections) that auto-expands from chats with zero extra API calls and is viewable/editable in **`Settings`**,
+  - _So that_ she remembers what excites me without bloating context, and I stay in full transparent control.
+- **Acceptance Criteria:**
+  - Stored per Person in SQLCipher as human-readable Markdown (`memory_text`) with extensible sections (`Preferred Styles & Silhouettes`, `Favorite Colors & Palettes`, `Fabrics & Textures That Make Me Tingle`, `Fit, Mood & Sensual Preferences`, `Custom Notes & Observations`, plus dynamic custom sections).
+  - `Settings → Personality Memories` lists every Person; tapping opens her plain-text Markdown editor with `+ Add Trait`, raw text editing, and `Jump to Chat →`.
+  - Piggybacked `<memory_add>` markers from chat replies cleanly deduplicate and append new durable preferences into that Person's memory without extra LLM calls.
+
+### US-111: Chunked OOM-Safe Encrypted iPhone-to-iPhone Backup Export & Import
+
+- **User Story:**
+  - _As a_ user upgrading to a new iPhone with hundreds of private photos and customized personalities,
+  - _I want_ a fast, crash-free encrypted **Export** & **Import** function (`.ootdbackup`) transferring all Personalities, Plain-Text Memories, Avatars, `Wardrobe` & `Past OOTD` photos, Chats, and Saved Looks,
+  - _So that_ switching iPhones is effortless and completely secure even with a large photo library.
+- **Acceptance Criteria:**
+  - Uses sequential AES-256-GCM frames (`PBKDF2-HMAC-SHA512`, 100k rounds, 32-byte salt) keeping peak RAM under ~5 MB even for 500+ photos.
+  - **Export (`Settings → Backup & Transfer`):** Prompts for Backup Passphrase, shares `.ootdbackup` via iOS Share Sheet (AirDrop / Save to Files), and unconditionally shreds temp cache file in `finally`. Excludes OpenRouter API key by default.
+  - **Import (`Settings → Backup & Transfer`):** Verifies Backup Passphrase and every frame's GCM auth tag (rejecting wrong passphrase or 1-byte tamper cleanly), re-encrypts everything under the new iPhone's `appSessionKey`, deduplicates photos by `fileHash`, and shreds temp import file in `finally`.
 
 ---
 
-## 4. LLM Configuration & Vault Intelligence
+## 3. Pleasure & Sensuality Enhancements (`US-201` – `US-208`)
 
-### US-007: Vault-Level LLM Master Prompt (Authoritative System Injection)
-
-- **User Request:** _"Each vault should have a vault-level LLM master prompt which is appended whenever a prompt is made."_ and _"You must reassess how the master prompt for each vault is done too, because I noticed that my master prompt did not modify the behaviour of the output correctly, so fix that bug too as we build."_
-- **User Story:**
-  - _As a_ user configuring a vault for a specific domain (e.g., receipts, medical records, task lists),
-  - _I want_ my vault-level LLM master prompt to be enforced as an authoritative system directive across all AI operations in that vault,
-  - _So that_ AI photo analysis, summaries, and OCR queries strictly adhere to the vault's custom formatting rules, constraints, and tone without being overridden by default prompts.
-- **Acceptance Criteria:**
-  - **Database Persistence:** Each vault row stores an optional `llm_master_prompt` in SQLite.
-  - **Configuration Modal:** The vault detail header includes a **`[ MASTER PROMPT ]`** button opening `VaultMasterPromptModal` with presets (_Concise Bullets_, _Finance & Receipts_, _Document Archive_, _Technical/Dev_) and custom text entry.
-  - **Authoritative System Role Injection:** In `llmClient.ts`, `masterPrompt` is injected into the top-priority `system` message rather than appended as passive user text:
-    ```text
-    === VAULT MASTER DIRECTIVES (HIGHEST PRIORITY) ===
-    The user has established the following master directives for all operations in this vault.
-    You MUST strictly follow these rules, persona, formatting constraints, and domain guidelines above any generic output structure:
-    """
-    <Vault-specific instructions>
-    """
-    =================================================
-    ```
-  - **Adaptive Consumer Prompts:** In `FullImageModal` and `LlmAnalysisModal`, prompt templates defer to the active master prompt directives so hardcoded output structures do not conflict with or suppress user instructions.
-  - **Visual Status Indicator:** An active badge indicator (`MASTER PROMPT ACTIVE`) appears in AI photo analysis views when a vault has an active master prompt.
-
-### US-008: Unified OpenRouter.ai Gateway with Dynamic Model Selection
-
-- **User Request:** _"I want to use openrouter.ai then. Let's start coding. You may remove the current three providers and only open one field for open router."_
-- **User Story:**
-  - _As a_ user configuring AI intelligence providers in the System settings tab,
-  - _I want_ to store a single OpenRouter API key and freely switch between any foundation model (Gemini, DeepSeek, Kimi, etc.) via a unified gateway,
-  - _So that_ I do not have to manage multiple accounts or separate balances across individual providers.
-- **Acceptance Criteria:**
-  - **Single Keychain Secret:** Stored in hardware-backed iOS Keychain (`SecureStore`) under `POCKETPICK_OPENROUTER_API_KEY`.
-  - **Unified Endpoint:** All outgoing LLM queries route through OpenRouter's OpenAI-compatible completions endpoint: `https://openrouter.ai/api/v1/chat/completions`.
-  - **Dynamic Model Selection:** Stored in `POCKETPICK_OPENROUTER_MODEL` (defaulting to `google/gemini-2.5-flash`), with 1-tap presets for:
-    1. **Gemini 2.5 Flash** (`google/gemini-2.5-flash`) — Multimodal vision default.
-    2. **DeepSeek V3** (`deepseek/deepseek-chat`) — High-efficiency text & reasoning.
-    3. **DeepSeek R1** (`deepseek/deepseek-r1`) — Deep reasoning.
-    4. **Kimi K2.6** (`moonshotai/kimi-k2.6`) — Multimodal long-context reasoning.
-    5. **Custom Model ID** — Direct input for any OpenRouter-cataloged model.
-  - **Settings UI (`ApiKeySettings`):** Displays a streamlined single OpenRouter key input with status masking, deletion option, and one-tap model chips.
-  - **Multimodal Support:** Base64 photo payloads are passed via standard OpenAI `image_url` format supported natively by OpenRouter vision models.
-  - **Cost & Quota Protection:** Maintains the 100-request monthly transactional quota barrier before dispatching to OpenRouter.
-
----
-
-## 5. System UI & Privacy Invariants
-
-### US-009: Clean App Launch & Dev Overlay Suppression
-
-- **User Request:** _"The Top Status Bar: 'Download 100%' should be removed, it will make users scared that we moved their secret data"_, and _"Both the status bars should be remove"_
-- **User Story:**
-  - _As a_ user launching PocketPick,
-  - _I want_ the app to open with a completely clean interface free of "Download 100%" or bottom popup status bars,
-  - _So that_ I am confident my secret, offline vault data is completely secure and not being transmitted or downloaded.
-- **Acceptance Criteria:**
-  - **Top Download Bar Disabled:** React Native's `RCTDevLoadingView` is disabled at native application launch in `AppDelegate.swift` via `RCTDevLoadingViewSetEnabled(false)`. The top "Downloading JavaScript bundle 100%" bar is completely prevented from displaying.
-  - **Bottom Status / LogBox Popup Disabled:** In `src/app/_layout.tsx`, `LogBox.ignoreAllLogs(true)` is activated, preventing blank or dev notification overlays from mounting at the bottom of the screen.
-  - **Production Invariant:** In production/release builds, dev banners and loading views remain completely stripped and absent.
-
-### US-010: Adaptive Theme Engine & Appearance Customization
-
-- **User Request:** _"I want to edit the app UI. Right now the whole app is quite in your face hardcore. It is dark themed, and it is all caps. This can feel too much and strong for a female user, who may expect light theme, more cute and classic blue and white ios design, or white and pink designs. Can you design a few themes that we can swap out in the system tab"_
-- **User Story:**
-  - _As a_ user personalizing the application aesthetic,
-  - _I want_ to select between multiple visual themes (Classic iOS Blue & White, Sakura Pink, and Cyber Terminal Dark) with adaptive casing and typography,
-  - _So that_ the interface feels elegant, cute, and accessible according to personal taste rather than exclusively hardcore dark monochrome.
-- **Acceptance Criteria:**
-  - **Theme Switcher in System Tab:** An appearance selector in the **System** tab (`ThemeSwitcher`) allows immediate theme switching with visual palette swatches and haptic feedback.
-  - **Included Themes:**
-    1. **`Classic iOS` (Light • Apple Blue & White):** Crisp light background (`#F2F2F7`), white card surfaces, Apple system blue accents (`#007AFF`), 14px rounded corners, standard iOS San Francisco typography, and natural title/sentence casing.
-    2. **`Sakura Pink` (Cute • Rose & Cream):** Warm soft blush background (`#FFF5F7`), white surfaces with delicate rose borders (`#FCE7F3`), sweet vibrant pink accents (`#EC4899`), 16px soft rounded corners, gentle typography, and natural casing.
-    3. **`Cyber Terminal` (Dark • High-Contrast Mono):** The original tactical dark theme with pure black (`#000000`), sharp 0px corners, monospace Courier font, and uppercase styling.
-  - **Adaptive Typography & Casing:** Monospace and forced ALL-CAPS styling are restricted to the Cyber theme; light and cute themes employ natural title/sentence casing and system typography.
-  - **Cross-App Propagation & Consistency:** Tab navigation bar, stack headers, buttons, cards, inputs, segmented controls, modal backgrounds, and the iOS status bar (`StatusBar`) dynamically adjust to the active theme.
-  - **Complete Screen & Modal Coverage:** All screens (Vaults, Vault Detail, Randomizer, Audit History, Settings) and all interactive modals (Unlock Vault, Create Vault, Ticket Editor, Master Prompt, Full Media Viewer, OCR & LLM Analysis, Pool Filter) adhere consistently to the active theme palette and typography without retaining hardcoded pitch-black styling.
-  - **Persistence:** Selected theme choice is preserved across restarts via `expo-secure-store`.
-
-### US-011: Configurable Vault Auto-Lock Timeout
-
-- **User Request:** _"Can we implement a mechnism so that when I open a vault with password, it will stay open for x minutes, with x configurable in the system tab as an integer."_
-- **User Story:**
-  - _As a_ user unlocking and managing my encrypted vaults,
-  - _I want_ the vault to stay open for `x` minutes after entering my passphrase, with `x` configurable as an integer in the System tab,
-  - _So that_ I do not have to repeatedly re-enter my passphrase during my active session while ensuring memory keys are automatically zeroized once the duration expires.
-- **Acceptance Criteria:**
-  - **System Tab Setting:** Under the **System** tab (`VaultTimeoutSettings`), users can configure the auto-lock timeout duration `x` in minutes as a non-negative integer.
-  - **Quick Presets & Custom Input:** Features preset selections (`1m`, `5m`, `15m`, `30m`, `60m`) alongside a direct numeric input for any integer value.
-  - **Persistence:** Stored securely in `expo-secure-store` with a default of 5 minutes (`POCKETPICK_VAULT_TIMEOUT_MINUTES`).
-  - **Foreground Expiration:** When a vault is opened, `unlockedAt` timestamp is recorded in `useSessionStore`. A periodic timer automatically locks the vault and zeroizes the key buffer when `x` minutes have elapsed.
-  - **Background & Inactive Transition:**
-    - `PrivacyShield` immediately conceals the application interface in the iOS app switcher.
-    - If `x === 0`, memory keys are immediately zeroized.
-    - If `x > 0`, keys remain protected in memory while within the `x`-minute window; if `x` minutes elapse while backgrounded, keys are zeroized upon return to the active state.
-
-### US-012: In-Vault Direct Camera Capture (Zero-Leak Sandbox Isolation)
-
-- **User Request:** _"can we add a camera functionality in the app so that photos are only saved in this app and not viewable in the ios album like photos or google photos"_, and _"You should add this functionlity inside the vaults. Implement now and test"_
-- **User Story:**
-  - _As a_ security-focused user capturing confidential documents or private photos,
-  - _I want_ to shoot photos directly within my unlocked vault using the device camera,
-  - _So that_ captured photos are encrypted immediately into the vault without ever being saved to or viewable in the system iOS Camera Roll, Apple Photos, or Google Photos.
-- **Acceptance Criteria:**
-  - **In-Vault Camera Actions:**
-    - When the gallery is empty, the empty card presents both a **"TAKE PHOTO"** button and an **"IMPORT FROM DEVICE"** button.
-    - When the gallery contains photos, the header presents both a compact **"CAMERA"** button and an **"+ IMPORT"** button.
-  - **Camera Permission Handling:** When tapping the camera button, the app requests camera access via `ImagePicker.requestCameraPermissionsAsync()`. If denied, it presents a helpful permission alert without crashing.
-  - **Direct Capture & Instant Ingestion:**
-    - Launches device camera via `ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 1, allowsEditing: false })`.
-    - Captures photo directly to the application's isolated temporary cache without writing to `PHPhotoLibrary` / Camera Roll.
-    - Immediately passes the captured image into `ingestImage`: derives thumbnail, encrypts both full-res and thumbnail via AES-256-GCM, stores `.enc` files into vault storage, and shreds the temporary capture file in `finally`.
-  - **Zero Leak to System Album:** Photos captured inside PocketPick do not touch or appear in Apple Photos, iCloud Photos, or Google Photos.
-  - **Haptic & Visual Feedback:** Triggers a success haptic upon completed capture and immediately refreshes the gallery. If a duplicate image is detected, displays an alert and triggers a warning haptic.
+- **US-201 — Layered "Unveil" Reveal Ritual (with Instant `Reveal All`):** Optional skin-outward veiled cards (_Underwear → Hosiery → Top → Bottom → Others_, restricted to active requested slots) revealed on tap with soft haptics—plus a prominent **`Reveal All`** pill for rushed mornings.
+- **US-202 — Secret Layer Mode (`/secret`):** Picks hidden intimate foundation (`Bra` + `Panties` + `Hosiery` / `Underwear` + `Hosiery`) to wear secretly beneath an outer outfit.
+- **US-203 — Interactive "Keep & Swap" Negotiation:** Lock favorite pieces on an OOTD card and swap individual unlocked slots with playful in-character reactions.
+- **US-204 — Post-OOTD "Fit Check" Mirror Loop (`/fitcheck`):** One-tap `Send Fit Check` launches the isolated in-app camera, routes the mirror photo into **`Past OOTD`**, and sends it to the Person with full memory of the chosen outfit.
+- **US-205 — AI-Curated Styling Mode (`/style [mood]`) & Tactile Auto-Tagging:** `AI Suggestion` captures fabric feel, texture, cut, color, and mood; `/style [mood]` intentionally harmonizes 1 piece per active slot (with CSPRNG fallback).
+- **US-206 — Sensual Luxury Themes (`Velvet Noir` & `Champagne Silk`) & Haptics:** Adds obsidian-plum/champagne-gold and warm-ivory/rose-espresso editorial themes to `ThemeSwitcher`.
+- **US-207 — Encrypted Lookbook & Anti-Repeat Cooldown:** Bookmark `♡ Save Look` / `Worn Today` into `Past OOTD → Saved Looks` (with deleted-item tombstone safety) and optionally avoid repeating recently worn garments.
+- **US-208 — Persona Tone/Sensuality Dials & Contextual Greetings:** Quick Tone/Sensuality chips integrated cleanly into each Person's prompt.
