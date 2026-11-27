@@ -8,6 +8,7 @@ import {
   VaultTimeoutSettings,
   OotdPreferencesCard,
   PersonalityMemoriesCard,
+  BackupTransferCard,
 } from '../../components/settings';
 import { useTheme } from '../../theme';
 
@@ -37,6 +38,9 @@ export default function SettingsScreen() {
 
       {/* Quota Progress Card */}
       <QuotaProgressCard />
+
+      {/* iPhone Transfer & Encrypted Backup */}
+      <BackupTransferCard />
 
       {/* OpenRouter API Key & Grok Default */}
       <ApiKeySettings />

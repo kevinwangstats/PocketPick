@@ -36,7 +36,8 @@
           "cameraPermission": "PocketPick requires camera access to take secure photos that are encrypted directly into your vault.",
           "photosPermission": "PocketPick requires photo library access to import photos into your encrypted vault."
         }
-      ]
+      ],
+      "expo-sharing"
     ]
   }
 }

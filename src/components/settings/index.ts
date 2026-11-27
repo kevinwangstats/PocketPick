@@ -5,3 +5,4 @@ export * from './VaultTimeoutSettings';
 export * from './OotdPreferencesCard';
 export * from './PersonalityMemoriesCard';
 export * from './PersonalityMemoryModal';
+export * from './BackupTransferCard';
